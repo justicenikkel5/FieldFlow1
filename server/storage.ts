@@ -21,7 +21,7 @@ export interface IStorage {
   // (IMPORTANT) these user operations are mandatory for Replit Auth.
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
-  
+
   // Appointment operations
   getAppointments(userId: string, startDate?: Date, endDate?: Date): Promise<Appointment[]>;
   getAppointment(id: string, userId: string): Promise<Appointment | undefined>;
@@ -34,13 +34,13 @@ export interface IStorage {
     confirmationRate: number;
     noShowRate: number;
   }>;
-  
+
   // Reminder template operations
   getReminderTemplates(userId: string): Promise<ReminderTemplate[]>;
   createReminderTemplate(template: InsertReminderTemplate): Promise<ReminderTemplate>;
   updateReminderTemplate(id: string, userId: string, updates: Partial<InsertReminderTemplate>): Promise<ReminderTemplate | undefined>;
   deleteReminderTemplate(id: string, userId: string): Promise<boolean>;
-  
+
   // Calendar integration operations
   getCalendarIntegrations(userId: string): Promise<CalendarIntegration[]>;
   createCalendarIntegration(integration: InsertCalendarIntegration): Promise<CalendarIntegration>;
@@ -72,10 +72,15 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
   // Appointment operations
   async getAppointments(userId: string, startDate?: Date, endDate?: Date): Promise<Appointment[]> {
     let query = db.select().from(appointments).where(eq(appointments.userId, userId));
-    
+
     if (startDate && endDate) {
       return db.select()
         .from(appointments)
@@ -88,7 +93,7 @@ export class DatabaseStorage implements IStorage {
         )
         .orderBy(desc(appointments.appointmentDate));
     }
-    
+
     return query.orderBy(desc(appointments.appointmentDate));
   }
 
@@ -164,7 +169,7 @@ export class DatabaseStorage implements IStorage {
     // Get confirmation rate (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
+
     const [totalResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(appointments)
@@ -263,7 +268,7 @@ export class DatabaseStorage implements IStorage {
     const [updatedIntegration] = await db
       .update(calendarIntegrations)
       .set({ ...updates, updatedAt: new Date() })
-      .where(and(eq(calendarIntegrations.id, id), eq(calendarIntegrations.userId, userId)))
+      .where(and(eq(id, id), eq(userId, userId)))
       .returning();
     return updatedIntegration;
   }

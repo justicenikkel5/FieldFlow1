@@ -13,6 +13,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
 
+  // Sign-in route
+  app.post('/api/signin', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+      
+      // For now, this is a placeholder - you'll need to implement actual password verification
+      // In a real app, you'd verify the password against a hash stored in the database
+      const user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+      
+      // TODO: Implement password verification
+      // For now, we'll just check if the user exists
+      
+      // Set up session or JWT token here
+      res.json({ 
+        message: "Sign in successful", 
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName
+        }
+      });
+    } catch (error) {
+      console.error("Error during sign-in:", error);
+      res.status(500).json({ message: "Sign in failed" });
+    }
+  });
+
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {

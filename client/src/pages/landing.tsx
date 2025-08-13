@@ -21,7 +21,7 @@ export default function Landing() {
               <a href="#pricing" className="text-textSecondary hover:text-textPrimary transition-colors">Pricing</a>
               <a href="#integrations" className="text-textSecondary hover:text-textPrimary transition-colors">Integrations</a>
               <Button variant="ghost" asChild>
-                <a href="/api/login">Sign In</a>
+                <a href="/signin">Sign In</a>
               </Button>
               <Button asChild>
                 <a href="/register">Get Started</a>

@@ -7,12 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Calendar, ArrowLeft } from "lucide-react";
 import { useLocation } from "wouter";
 
-export default function Register() {
+export default function SignIn() {
   const [, setLocation] = useLocation();
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
     email: "",
+    password: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -31,7 +30,7 @@ export default function Register() {
     setError("");
 
     // Basic validation
-    if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.email.trim()) {
+    if (!formData.email.trim() || !formData.password.trim()) {
       setError("Please fill in all fields");
       setIsLoading(false);
       return;
@@ -46,13 +45,25 @@ export default function Register() {
     }
 
     try {
-      // Store registration data in localStorage temporarily
-      localStorage.setItem('pendingRegistration', JSON.stringify(formData));
-      
-      // Redirect to Replit auth
-      window.location.href = '/api/login';
+      const response = await fetch('/api/signin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        // Redirect to dashboard on successful sign-in
+        setLocation('/');
+        window.location.reload();
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || "Sign in failed. Please try again.");
+      }
     } catch (err) {
-      setError("Registration failed. Please try again.");
+      setError("Sign in failed. Please try again.");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -68,48 +79,16 @@ export default function Register() {
           </div>
           <div>
             <CardTitle className="text-2xl font-bold text-textPrimary">
-              Welcome to FieldFlow
+              Welcome Back
             </CardTitle>
             <p className="text-textSecondary mt-2">
-              Let's get you started with your account
+              Sign in to your FieldFlow account
             </p>
           </div>
         </CardHeader>
         
         <CardContent className="space-y-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="firstName" className="text-textPrimary font-medium">
-                First Name
-              </Label>
-              <Input
-                id="firstName"
-                name="firstName"
-                type="text"
-                value={formData.firstName}
-                onChange={handleInputChange}
-                placeholder="Enter your first name"
-                required
-                className="h-11"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="lastName" className="text-textPrimary font-medium">
-                Last Name
-              </Label>
-              <Input
-                id="lastName"
-                name="lastName"
-                type="text"
-                value={formData.lastName}
-                onChange={handleInputChange}
-                placeholder="Enter your last name"
-                required
-                className="h-11"
-              />
-            </div>
-            
             <div className="space-y-2">
               <Label htmlFor="email" className="text-textPrimary font-medium">
                 Email Address
@@ -121,6 +100,22 @@ export default function Register() {
                 value={formData.email}
                 onChange={handleInputChange}
                 placeholder="Enter your email address"
+                required
+                className="h-11"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-textPrimary font-medium">
+                Password
+              </Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                placeholder="Enter your password"
                 required
                 className="h-11"
               />
@@ -137,7 +132,7 @@ export default function Register() {
               className="w-full h-11 text-lg font-medium"
               disabled={isLoading}
             >
-              {isLoading ? "Creating Account..." : "Create Account"}
+              {isLoading ? "Signing In..." : "Sign In"}
             </Button>
           </form>
           
@@ -153,9 +148,25 @@ export default function Register() {
           </div>
           
           <div className="text-center text-sm text-textSecondary">
-            <p>Already have an account?</p>
+            <p>Don't have an account?</p>
             <Button variant="link" asChild className="p-0 h-auto text-primary">
-              <a href="/signin">Sign In</a>
+              <a href="/register">Create Account</a>
+            </Button>
+          </div>
+          
+          <div className="text-center">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+            <Button variant="outline" asChild className="w-full mt-4">
+              <a href="/api/login">Sign in with Replit</a>
             </Button>
           </div>
         </CardContent>
