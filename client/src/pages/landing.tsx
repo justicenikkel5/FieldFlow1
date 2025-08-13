@@ -24,7 +24,7 @@ export default function Landing() {
                 <a href="/api/login">Sign In</a>
               </Button>
               <Button asChild>
-                <a href="/api/login">Get Started</a>
+                <a href="/register">Get Started</a>
               </Button>
             </div>
           </div>
@@ -49,7 +49,7 @@ export default function Landing() {
               
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button size="lg" asChild className="text-lg px-8 py-4">
-                  <a href="/api/login">Get Started Free</a>
+                  <a href="/register">Get Started Free</a>
                 </Button>
                 <Button variant="outline" size="lg" className="text-lg px-8 py-4">
                   Watch Demo
@@ -205,7 +205,7 @@ export default function Landing() {
             Join thousands of businesses using FieldFlow to automate their appointment communications and grow their revenue.
           </p>
           <Button size="lg" variant="secondary" asChild className="text-lg px-8 py-4">
-            <a href="/api/login">Start Your Free Trial</a>
+            <a href="/register">Start Your Free Trial</a>
           </Button>
         </div>
       </section>
