@@ -102,14 +102,34 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    const strategyName = `replitauth:${req.hostname}`;
+    
+    // Check if strategy exists
+    if (!(passport as any)._strategies[strategyName]) {
+      return res.status(400).json({ 
+        message: `Authentication not configured for domain ${req.hostname}. Please ensure this domain is added to REPLIT_DOMAINS environment variable.`,
+        availableDomains: process.env.REPLIT_DOMAINS?.split(",") || []
+      });
+    }
+    
+    passport.authenticate(strategyName, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    const strategyName = `replitauth:${req.hostname}`;
+    
+    // Check if strategy exists
+    if (!(passport as any)._strategies[strategyName]) {
+      return res.status(400).json({ 
+        message: `Authentication not configured for domain ${req.hostname}. Please ensure this domain is added to REPLIT_DOMAINS environment variable.`,
+        availableDomains: process.env.REPLIT_DOMAINS?.split(",") || []
+      });
+    }
+    
+    passport.authenticate(strategyName, {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
     })(req, res, next);

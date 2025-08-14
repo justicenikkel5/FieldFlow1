@@ -51,6 +51,19 @@ app.get('/ping', (req, res) => {
   res.status(200).send('pong');
 });
 
+// Debug endpoint to help troubleshoot domain configuration
+app.get('/api/debug/domains', (req, res) => {
+  res.json({
+    currentHostname: req.hostname,
+    configuredDomains: process.env.REPLIT_DOMAINS?.split(",") || [],
+    headers: {
+      host: req.headers.host,
+      'x-forwarded-host': req.headers['x-forwarded-host'],
+      'x-forwarded-proto': req.headers['x-forwarded-proto']
+    }
+  });
+});
+
 (async () => {
   const server = await registerRoutes(app);
 
