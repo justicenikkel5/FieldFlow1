@@ -10,6 +10,7 @@ import Register from "./pages/register";
 import SignIn from "./pages/signin";
 import PaymentTest from "./pages/payment-test";
 import NotFound from "./pages/not-found";
+import { lazy } from "react";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/register" component={Register} />
       <Route path="/signin" component={SignIn} />
       <Route path="/payment-test" component={PaymentTest} />
+      <Route path="/email-test" component={lazy(() => import("./pages/email-test"))} />
       <Route component={NotFound} />
     </Switch>
   );

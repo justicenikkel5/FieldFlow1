@@ -7,10 +7,11 @@ import {
   insertReminderTemplateSchema,
   insertCalendarIntegrationSchema 
 } from "@shared/schema";
-import { z } from "zod";
+import { z, ZodError } from "zod";
 import { StripeService } from "./stripe";
 import { Request } from "express";
 import { google } from "googleapis";
+import { mailgunService } from "./mailgun";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -66,7 +67,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: req.user.claims.firstName || '',
           lastName: req.user.claims.lastName || ''
         };
-        user = await storage.upsertUser(userData);
+        user = await storage.createUser(userData);
       }
       
       res.json(user);
@@ -148,9 +149,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const appointment = await storage.createAppointment(appointmentData);
+      
+      // Send booking confirmation email
+      try {
+        const user = await storage.getUser(userId);
+        if (user && user.email) {
+          const appointmentDate = new Date(appointment.dateTime);
+          await mailgunService.sendBookingConfirmation(
+            user.email,
+            `${user.firstName} ${user.lastName}`,
+            {
+              title: appointment.title,
+              date: appointmentDate.toLocaleDateString(),
+              time: appointmentDate.toLocaleTimeString(),
+              location: appointment.location || undefined,
+              description: appointment.notes || undefined,
+            }
+          );
+          console.log(`Booking confirmation sent to ${user.email}`);
+        }
+      } catch (emailError) {
+        console.error("Error sending booking confirmation email:", emailError);
+        // Don't fail the appointment creation if email fails
+      }
+      
       res.status(201).json(appointment);
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
+    } catch (error) {
+      if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid appointment data", errors: error.errors });
       }
       console.error("Error creating appointment:", error);
@@ -227,8 +252,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const template = await storage.createReminderTemplate(templateData);
       res.status(201).json(template);
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
+    } catch (error) {
+      if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid template data", errors: error.errors });
       }
       console.error("Error creating reminder template:", error);
@@ -258,8 +283,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const integration = await storage.createCalendarIntegration(integrationData);
       res.status(201).json(integration);
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
+    } catch (error) {
+      if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid integration data", errors: error.errors });
       }
       console.error("Error creating calendar integration:", error);
@@ -288,25 +313,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!customerId) {
         const customer = await StripeService.createCustomer({
           email: user.email,
-          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          name: `${user.firstName} ${user.lastName}`,
           metadata: { userId }
         });
         customerId = customer.id;
         
         // Update user with Stripe customer ID
-        await storage.upsertUser({ 
-          id: userId,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          stripeCustomerId: customerId 
-        });
+        await storage.updateUser(userId, { stripeCustomerId: customerId });
       }
 
       // Create payment intent
       const paymentIntent = await StripeService.createPaymentIntent({
         amount: Math.round(amount * 100), // Convert to cents
-        customerId: customerId!,
+        customerId,
         description: description || 'Appointment booking',
         metadata: {
           userId,
