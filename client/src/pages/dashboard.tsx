@@ -6,10 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  Calendar, 
-  MessageSquare, 
-  CheckCircle, 
+import {
+  Calendar,
+  MessageSquare,
+  CheckCircle,
   AlertTriangle,
   BarChart3,
   RefreshCw,
@@ -28,19 +28,19 @@ export default function Dashboard() {
     const handlePostRegistration = async () => {
       const connectGoogleCalendar = localStorage.getItem('connectGoogleCalendar');
       const skipCalendarConnection = localStorage.getItem('skipCalendarConnection');
-      
+
       if (connectGoogleCalendar && user) {
         // Clear the flag and initiate Google Calendar connection
         localStorage.removeItem('connectGoogleCalendar');
         localStorage.removeItem('pendingRegistration');
-        
+
         try {
           const response = await fetch('/api/auth/complete-registration', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ connectGoogleCalendar: true })
           });
-          
+
           const data = await response.json();
           if (data.authUrl) {
             window.location.href = data.authUrl;
@@ -50,19 +50,19 @@ export default function Dashboard() {
           console.error('Error initiating calendar connection:', error);
         }
       }
-      
+
       if (skipCalendarConnection && user) {
         // Clear the flag and show welcome message
         localStorage.removeItem('skipCalendarConnection');
         localStorage.removeItem('pendingRegistration');
-        
+
         toast({
           title: "Welcome to FieldFlow!",
           description: "You can connect your calendar anytime from the integrations section.",
         });
       }
     };
-    
+
     if (user && !isLoading) {
       handlePostRegistration();
     }
@@ -73,7 +73,7 @@ export default function Dashboard() {
     const urlParams = new URLSearchParams(window.location.search);
     const googleCalendar = urlParams.get('google_calendar');
     const calendly = urlParams.get('calendly');
-    
+
     if (googleCalendar === 'connected') {
       toast({
         title: "Google Calendar Connected!",
@@ -136,7 +136,7 @@ export default function Dashboard() {
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   const { data: appointments, isLoading: appointmentsLoading } = useQuery({
-    queryKey: ["/api/appointments", { 
+    queryKey: ["/api/appointments", {
       startDate: today.toISOString().split('T')[0],
       endDate: tomorrow.toISOString().split('T')[0]
     }],
@@ -316,7 +316,7 @@ export default function Dashboard() {
                   appointments.map((appointment) => (
                     <div key={appointment.id} className="flex items-center space-x-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
                       <div className={`w-3 h-3 rounded-full ${
-                        appointment.status === 'confirmed' ? 'bg-secondary' : 
+                        appointment.status === 'confirmed' ? 'bg-secondary' :
                         appointment.status === 'scheduled' ? 'bg-accent' : 'bg-primary'
                       }`}></div>
                       <div className="flex-1">
@@ -327,9 +327,9 @@ export default function Dashboard() {
                           </div>
                           <div className="text-right">
                             <p className="font-medium text-textPrimary">
-                              {new Date(appointment.appointmentDate).toLocaleTimeString('en-US', { 
-                                hour: 'numeric', 
-                                minute: '2-digit' 
+                              {new Date(appointment.appointmentDate).toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit'
                               })}
                             </p>
                             <p className="text-sm text-textSecondary">Today</p>
@@ -395,7 +395,7 @@ export default function Dashboard() {
                     {Array.from({ length: 3 }).map((_, i) => (
                       <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <div className="flex items-center space-x-3">
-                          <Skeleton className="w-8 h-8 rounded-lg" />
+                          <Skeleton className="w-5 h-5" />
                           <Skeleton className="h-4 w-24" />
                         </div>
                         <Skeleton className="h-6 w-16" />
@@ -404,27 +404,19 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   <>
-                    {integrations?.find(i => i.provider === 'google' && i.isActive) ? (
-                      <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                            <CalendarIcon className="w-4 h-4 text-green-600" />
-                          </div>
-                          <span className="font-medium text-textPrimary">Google Calendar</span>
-                        </div>
-                        <Badge variant="default">Connected</Badge>
+                    {/* Google Calendar */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <CalendarIcon className="w-5 h-5 text-gray-600" />
+                        <span className="font-medium text-textPrimary">Google Calendar</span>
                       </div>
-                    ) : (
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <CalendarIcon className="w-4 h-4 text-gray-600" />
-                          </div>
-                          <span className="font-medium text-textPrimary">Google Calendar</span>
-                        </div>
-                        <Button 
-                          variant="ghost" 
+                      {integrations?.find(i => i.provider === 'google' && i.isActive) ? (
+                        <Badge variant="default">Connected</Badge>
+                      ) : (
+                        <Button
+                          variant="ghost"
                           size="sm"
+                          className="text-primary hover:text-primary"
                           onClick={async () => {
                             try {
                               const response = await fetch('/api/auth/google');
@@ -439,31 +431,27 @@ export default function Dashboard() {
                         >
                           Connect
                         </Button>
-                      </div>
-                    )}
+                      )}
+                    </div>
 
-                    
-
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    {/* Vonage SMS */}
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <Phone className="w-4 h-4 text-gray-600" />
-                        </div>
+                        <Phone className="w-5 h-5 text-gray-600" />
                         <span className="font-medium text-textPrimary">Vonage SMS</span>
                       </div>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" className="text-primary hover:text-primary">
                         Connect
                       </Button>
                     </div>
 
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    {/* Mailgun Email */}
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <Mail className="w-4 h-4 text-gray-600" />
-                        </div>
+                        <Mail className="w-5 h-5 text-gray-600" />
                         <span className="font-medium text-textPrimary">Mailgun Email</span>
                       </div>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" className="text-primary hover:text-primary">
                         Connect
                       </Button>
                     </div>
@@ -502,7 +490,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
-          
+
           {/* Google Calendar Integration */}
           <div className="lg:col-span-1">
             <CalendarIntegrations integrations={integrations || []} />
