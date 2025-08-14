@@ -72,6 +72,15 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async updateUser(id: string, updates: Partial<typeof users.$inferInsert>) {
+    const [user] = await db
+      .update(users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
   async getUserByEmail(email: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.email, email));
     return user;
@@ -121,6 +130,16 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return updatedAppointment;
   }
+
+  async getAppointmentById(id: string, userId: string) {
+    const [appointment] = await db
+      .select()
+      .from(appointments)
+      .where(and(eq(appointments.id, id), eq(appointments.userId, userId)))
+      .limit(1);
+    return appointment;
+  }
+
 
   async deleteAppointment(id: string, userId: string): Promise<boolean> {
     const result = await db

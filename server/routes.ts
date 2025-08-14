@@ -8,6 +8,8 @@ import {
   insertCalendarIntegrationSchema 
 } from "@shared/schema";
 import { z, ZodError } from "zod";
+import { StripeService } from "./stripe";
+import { Request } from "express";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -213,6 +215,214 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error creating calendar integration:", error);
       res.status(500).json({ message: "Failed to create calendar integration" });
+    }
+  });
+
+  // Stripe payment routes
+  app.post('/api/create-payment-intent', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { amount, appointmentId, description } = req.body;
+
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Valid amount is required" });
+      }
+
+      // Get user information
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Create or retrieve Stripe customer
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await StripeService.createCustomer({
+          email: user.email,
+          name: `${user.firstName} ${user.lastName}`,
+          metadata: { userId }
+        });
+        customerId = customer.id;
+        
+        // Update user with Stripe customer ID
+        await storage.updateUser(userId, { stripeCustomerId: customerId });
+      }
+
+      // Create payment intent
+      const paymentIntent = await StripeService.createPaymentIntent({
+        amount: Math.round(amount * 100), // Convert to cents
+        customerId,
+        description: description || 'Appointment booking',
+        metadata: {
+          userId,
+          appointmentId: appointmentId || '',
+        }
+      });
+
+      res.json({
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+      });
+    } catch (error) {
+      console.error("Error creating payment intent:", error);
+      res.status(500).json({ message: "Failed to create payment intent" });
+    }
+  });
+
+  app.post('/api/confirm-payment', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { paymentIntentId, appointmentId } = req.body;
+
+      if (!paymentIntentId) {
+        return res.status(400).json({ message: "Payment intent ID is required" });
+      }
+
+      // Retrieve payment intent to verify status
+      const paymentIntent = await StripeService.retrievePaymentIntent(paymentIntentId);
+      
+      if (paymentIntent.status === 'succeeded') {
+        // Update appointment with payment information if appointmentId provided
+        if (appointmentId) {
+          await storage.updateAppointment(appointmentId, userId, {
+            paymentStatus: 'paid',
+            paymentIntentId: paymentIntentId,
+            amountPaid: paymentIntent.amount / 100, // Convert from cents
+          });
+        }
+
+        res.json({ 
+          message: "Payment confirmed successfully",
+          paymentIntent: {
+            id: paymentIntent.id,
+            status: paymentIntent.status,
+            amount: paymentIntent.amount / 100,
+          }
+        });
+      } else {
+        res.status(400).json({ 
+          message: "Payment not completed",
+          status: paymentIntent.status 
+        });
+      }
+    } catch (error) {
+      console.error("Error confirming payment:", error);
+      res.status(500).json({ message: "Failed to confirm payment" });
+    }
+  });
+
+  app.post('/api/refund-payment', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { paymentIntentId, amount, appointmentId } = req.body;
+
+      if (!paymentIntentId) {
+        return res.status(400).json({ message: "Payment intent ID is required" });
+      }
+
+      // Verify the appointment belongs to the user
+      if (appointmentId) {
+        const appointment = await storage.getAppointmentById(appointmentId, userId);
+        if (!appointment) {
+          return res.status(404).json({ message: "Appointment not found" });
+        }
+      }
+
+      // Create refund
+      const refund = await StripeService.refundPayment(
+        paymentIntentId, 
+        amount ? Math.round(amount * 100) : undefined
+      );
+
+      // Update appointment status if appointmentId provided
+      if (appointmentId) {
+        await storage.updateAppointment(appointmentId, userId, {
+          paymentStatus: 'refunded',
+          refundId: refund.id,
+          refundAmount: refund.amount / 100,
+        });
+      }
+
+      res.json({
+        message: "Refund processed successfully",
+        refund: {
+          id: refund.id,
+          status: refund.status,
+          amount: refund.amount / 100,
+        }
+      });
+    } catch (error) {
+      console.error("Error processing refund:", error);
+      res.status(500).json({ message: "Failed to process refund" });
+    }
+  });
+
+  // Stripe webhook endpoint
+  app.post('/api/stripe/webhook', async (req: Request, res) => {
+    try {
+      const signature = req.headers['stripe-signature'] as string;
+      
+      if (!signature) {
+        return res.status(400).json({ message: "Missing Stripe signature" });
+      }
+
+      // Verify webhook signature
+      const event = StripeService.verifyWebhookSignature(
+        req.body as Buffer,
+        signature
+      );
+
+      // Handle different event types
+      switch (event.type) {
+        case 'payment_intent.succeeded':
+          const paymentIntent = event.data.object as any;
+          console.log('Payment succeeded:', paymentIntent.id);
+          
+          // Update appointment status if metadata contains appointmentId
+          if (paymentIntent.metadata?.appointmentId) {
+            await storage.updateAppointment(
+              paymentIntent.metadata.appointmentId,
+              paymentIntent.metadata.userId,
+              {
+                paymentStatus: 'paid',
+                paymentIntentId: paymentIntent.id,
+                amountPaid: paymentIntent.amount / 100,
+              }
+            );
+          }
+          break;
+
+        case 'payment_intent.payment_failed':
+          const failedPayment = event.data.object as any;
+          console.log('Payment failed:', failedPayment.id);
+          
+          // Update appointment status if metadata contains appointmentId
+          if (failedPayment.metadata?.appointmentId) {
+            await storage.updateAppointment(
+              failedPayment.metadata.appointmentId,
+              failedPayment.metadata.userId,
+              {
+                paymentStatus: 'failed',
+                paymentIntentId: failedPayment.id,
+              }
+            );
+          }
+          break;
+
+        case 'charge.dispute.created':
+          const dispute = event.data.object as any;
+          console.log('Dispute created:', dispute.id);
+          // Handle dispute logic here
+          break;
+
+        default:
+          console.log(`Unhandled event type: ${event.type}`);
+      }
+
+      res.json({ received: true });
+    } catch (error) {
+      console.error('Webhook error:', error);
+      res.status(400).json({ message: "Webhook handler failed" });
     }
   });
 

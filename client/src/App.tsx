@@ -6,9 +6,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
-import Register from "@/pages/register";
-import SignIn from "@/pages/signin";
-import NotFound from "@/pages/not-found";
+import Register from "./pages/register";
+import SignIn from "./pages/signin";
+import PaymentTest from "./pages/payment-test";
+import NotFound from "./pages/not-found";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -22,6 +23,7 @@ function Router() {
       )}
       <Route path="/register" component={Register} />
       <Route path="/signin" component={SignIn} />
+      <Route path="/payment-test" component={PaymentTest} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -8,6 +8,8 @@ import {
   text,
   integer,
   boolean,
+  serial, // Import serial for primary keys
+  real,   // Import real for decimal numbers
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { type z } from "zod";
@@ -33,6 +35,7 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   businessName: varchar("business_name"),
+  stripeCustomerId: text("stripe_customer_id"), // Added Stripe customer ID
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -53,6 +56,11 @@ export const appointments = pgTable("appointments", {
   reminderSentAt: timestamp("reminder_sent_at"),
   confirmationSent: boolean("confirmation_sent").default(false),
   notes: text("notes"),
+  paymentStatus: text("payment_status"), // 'pending', 'paid', 'failed', 'refunded'
+  paymentIntentId: text("payment_intent_id"),
+  amountPaid: real("amount_paid"),
+  refundId: text("refund_id"),
+  refundAmount: real("refund_amount"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -98,6 +106,12 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+  // Omitting payment-related fields as they are typically handled after creation or during payment processing
+  paymentStatus: true,
+  paymentIntentId: true,
+  amountPaid: true,
+  refundId: true,
+  refundAmount: true,
 });
 
 export const insertReminderTemplateSchema = createInsertSchema(reminderTemplates).omit({
