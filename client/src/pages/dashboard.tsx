@@ -17,14 +17,15 @@ import {
   Mail,
   Phone
 } from "lucide-react";
+import GoogleCalendarConnect from "@/components/GoogleCalendarConnect";
 
 export default function Dashboard() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isLoading, user } = useAuth();
 
   // Redirect to home if not authenticated
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !user) {
       toast({
         title: "Unauthorized",
         description: "You are logged out. Logging in again...",
@@ -35,34 +36,34 @@ export default function Dashboard() {
       }, 500);
       return;
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [user, isLoading, toast]);
 
   // Fetch dashboard stats
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/stats"],
-    enabled: isAuthenticated,
+    enabled: !!user,
   });
 
   // Fetch today's appointments
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  
+
   const { data: appointments, isLoading: appointmentsLoading } = useQuery({
     queryKey: ["/api/appointments", { 
       startDate: today.toISOString().split('T')[0],
       endDate: tomorrow.toISOString().split('T')[0]
     }],
-    enabled: isAuthenticated,
+    enabled: !!user,
   });
 
   // Fetch calendar integrations
   const { data: integrations, isLoading: integrationsLoading } = useQuery({
     queryKey: ["/api/calendar-integrations"],
-    enabled: isAuthenticated,
+    enabled: !!user,
   });
 
-  if (isLoading || !isAuthenticated) {
+  if (isLoading || !user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="space-y-4">
@@ -85,7 +86,7 @@ export default function Dashboard() {
               </div>
               <span className="text-xl font-bold text-textPrimary">FieldFlow</span>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <Button variant="ghost" size="sm">
                 <RefreshCw className="w-4 h-4" />
@@ -384,6 +385,11 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+          
+          {/* Google Calendar Integration */}
+          <div className="lg:col-span-1">
+            <GoogleCalendarConnect integrations={integrations || []} />
           </div>
         </div>
       </div>

@@ -10,6 +10,7 @@ import {
 import { z, ZodError } from "zod";
 import { StripeService } from "./stripe";
 import { Request } from "express";
+import { google } from "googleapis";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -354,6 +355,148 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error processing refund:", error);
       res.status(500).json({ message: "Failed to process refund" });
+    }
+  });
+
+  // Google Calendar OAuth routes
+  app.get('/api/auth/google', isAuthenticated, async (req: any, res) => {
+    try {
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI
+      );
+
+      const scopes = [
+        'https://www.googleapis.com/auth/calendar.readonly',
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/userinfo.profile'
+      ];
+
+      const authUrl = oauth2Client.generateAuthUrl({
+        access_type: 'offline',
+        scope: scopes,
+        state: req.user.claims.sub, // Pass user ID in state
+        prompt: 'consent'
+      });
+
+      res.json({ authUrl });
+    } catch (error) {
+      console.error("Error generating Google auth URL:", error);
+      res.status(500).json({ message: "Failed to generate auth URL" });
+    }
+  });
+
+  app.get('/api/auth/google/callback', async (req, res) => {
+    try {
+      const { code, state: userId } = req.query;
+      
+      if (!code || !userId) {
+        return res.status(400).json({ message: "Missing authorization code or user ID" });
+      }
+
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI
+      );
+
+      // Exchange code for tokens
+      const { tokens } = await oauth2Client.getToken(code as string);
+      oauth2Client.setCredentials(tokens);
+
+      // Get user info from Google
+      const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+      const userInfo = await oauth2.userinfo.get();
+
+      // Save calendar integration
+      const integrationData = {
+        userId: userId as string,
+        provider: 'google' as const,
+        accountEmail: userInfo.data.email || '',
+        accessToken: tokens.access_token || '',
+        refreshToken: tokens.refresh_token || '',
+        expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
+        isActive: true
+      };
+
+      await storage.createCalendarIntegration(integrationData);
+
+      // Redirect back to dashboard with success
+      res.redirect('/?google_calendar=connected');
+    } catch (error) {
+      console.error("Error in Google OAuth callback:", error);
+      res.redirect('/?google_calendar=error');
+    }
+  });
+
+  app.get('/api/google-calendar/events', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { startDate, endDate } = req.query;
+
+      // Get Google calendar integration
+      const integrations = await storage.getCalendarIntegrations(userId);
+      const googleIntegration = integrations.find(i => i.provider === 'google' && i.isActive);
+
+      if (!googleIntegration) {
+        return res.status(404).json({ message: "Google Calendar not connected" });
+      }
+
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI
+      );
+
+      oauth2Client.setCredentials({
+        access_token: googleIntegration.accessToken,
+        refresh_token: googleIntegration.refreshToken
+      });
+
+      const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+      // Fetch events
+      const events = await calendar.events.list({
+        calendarId: 'primary',
+        timeMin: startDate ? new Date(startDate as string).toISOString() : new Date().toISOString(),
+        timeMax: endDate ? new Date(endDate as string).toISOString() : undefined,
+        maxResults: 50,
+        singleEvents: true,
+        orderBy: 'startTime'
+      });
+
+      const formattedEvents = events.data.items?.map(event => ({
+        id: event.id,
+        title: event.summary || 'Untitled',
+        start: event.start?.dateTime || event.start?.date,
+        end: event.end?.dateTime || event.end?.date,
+        description: event.description,
+        location: event.location,
+        source: 'google'
+      })) || [];
+
+      res.json(formattedEvents);
+    } catch (error) {
+      console.error("Error fetching Google Calendar events:", error);
+      res.status(500).json({ message: "Failed to fetch Google Calendar events" });
+    }
+  });
+
+  app.delete('/api/calendar-integrations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const integrationId = req.params.id;
+
+      const success = await storage.deleteCalendarIntegration(integrationId, userId);
+      if (!success) {
+        return res.status(404).json({ message: "Integration not found" });
+      }
+
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting calendar integration:", error);
+      res.status(500).json({ message: "Failed to delete integration" });
     }
   });
 

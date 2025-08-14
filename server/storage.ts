@@ -144,8 +144,9 @@ export class DatabaseStorage implements IStorage {
   async deleteAppointment(id: string, userId: string): Promise<boolean> {
     const result = await db
       .delete(appointments)
-      .where(and(eq(appointments.id, id), eq(appointments.userId, userId)));
-    return (result.rowCount || 0) > 0;
+      .where(and(eq(appointments.id, id), eq(appointments.userId, userId)))
+      .returning();
+    return result.length > 0;
   }
 
   async getAppointmentStats(userId: string): Promise<{
@@ -295,8 +296,9 @@ export class DatabaseStorage implements IStorage {
   async deleteCalendarIntegration(id: string, userId: string): Promise<boolean> {
     const result = await db
       .delete(calendarIntegrations)
-      .where(and(eq(calendarIntegrations.id, id), eq(calendarIntegrations.userId, userId)));
-    return (result.rowCount || 0) > 0;
+      .where(and(eq(calendarIntegrations.id, id), eq(calendarIntegrations.userId, userId)))
+      .returning();
+    return result.length > 0;
   }
 }
 
