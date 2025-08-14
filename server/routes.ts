@@ -7,7 +7,7 @@ import {
   insertReminderTemplateSchema,
   insertCalendarIntegrationSchema 
 } from "@shared/schema";
-import { z, ZodError } from "zod";
+import { z } from "zod";
 import { StripeService } from "./stripe";
 import { Request } from "express";
 import { google } from "googleapis";
@@ -149,8 +149,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const appointment = await storage.createAppointment(appointmentData);
       res.status(201).json(appointment);
-    } catch (error) {
-      if (error instanceof ZodError) {
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
         return res.status(400).json({ message: "Invalid appointment data", errors: error.errors });
       }
       console.error("Error creating appointment:", error);
@@ -227,8 +227,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const template = await storage.createReminderTemplate(templateData);
       res.status(201).json(template);
-    } catch (error) {
-      if (error instanceof ZodError) {
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
         return res.status(400).json({ message: "Invalid template data", errors: error.errors });
       }
       console.error("Error creating reminder template:", error);
@@ -258,8 +258,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const integration = await storage.createCalendarIntegration(integrationData);
       res.status(201).json(integration);
-    } catch (error) {
-      if (error instanceof ZodError) {
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
         return res.status(400).json({ message: "Invalid integration data", errors: error.errors });
       }
       console.error("Error creating calendar integration:", error);
@@ -288,7 +288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!customerId) {
         const customer = await StripeService.createCustomer({
           email: user.email,
-          name: `${user.firstName} ${user.lastName}`,
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
           metadata: { userId }
         });
         customerId = customer.id;
@@ -306,7 +306,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create payment intent
       const paymentIntent = await StripeService.createPaymentIntent({
         amount: Math.round(amount * 100), // Convert to cents
-        customerId,
+        customerId: customerId!,
         description: description || 'Appointment booking',
         metadata: {
           userId,
