@@ -80,7 +80,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/auth/complete-registration', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { connectGoogleCalendar } = req.body;
+      const { connectGoogleCalendar, connectCalendly } = req.body;
       
       if (connectGoogleCalendar) {
         // Generate Google OAuth URL
@@ -102,6 +102,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           state: userId,
           prompt: 'consent'
         });
+
+        res.json({ authUrl, redirectToDashboard: false });
+      } else if (connectCalendly) {
+        // Generate Calendly OAuth URL
+        const authUrl = `https://auth.calendly.com/oauth/authorize?${new URLSearchParams({
+          client_id: process.env.CALENDLY_CLIENT_ID!,
+          response_type: 'code',
+          redirect_uri: process.env.CALENDLY_REDIRECT_URL!,
+          state: userId,
+        })}`;
 
         res.json({ authUrl, redirectToDashboard: false });
       } else {
@@ -535,6 +545,160 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting calendar integration:", error);
       res.status(500).json({ message: "Failed to delete integration" });
+    }
+  });
+
+  // Calendly OAuth routes
+  app.get('/api/auth/calendly', isAuthenticated, async (req: any, res) => {
+    try {
+      const authUrl = `https://auth.calendly.com/oauth/authorize?${new URLSearchParams({
+        client_id: process.env.CALENDLY_CLIENT_ID!,
+        response_type: 'code',
+        redirect_uri: process.env.CALENDLY_REDIRECT_URL!,
+        state: req.user.claims.sub, // Pass user ID in state
+      })}`;
+
+      res.json({ authUrl });
+    } catch (error) {
+      console.error("Error generating Calendly auth URL:", error);
+      res.status(500).json({ message: "Failed to generate auth URL" });
+    }
+  });
+
+  app.get('/api/auth/calendly/callback', async (req, res) => {
+    try {
+      const { code, state: userId } = req.query;
+      
+      if (!code || !userId) {
+        return res.status(400).json({ message: "Missing authorization code or user ID" });
+      }
+
+      // Exchange code for tokens
+      const tokenResponse = await fetch('https://auth.calendly.com/oauth/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_id: process.env.CALENDLY_CLIENT_ID!,
+          client_secret: process.env.CALENDLY_CLIENT_SECRET!,
+          code: code as string,
+          grant_type: 'authorization_code',
+          redirect_uri: process.env.CALENDLY_REDIRECT_URL!,
+        }),
+      });
+
+      const tokens = await tokenResponse.json();
+
+      if (!tokenResponse.ok) {
+        console.error('Calendly token exchange failed:', tokens);
+        return res.redirect('/?calendly=error');
+      }
+
+      // Get user info from Calendly
+      const userResponse = await fetch('https://api.calendly.com/users/me', {
+        headers: {
+          'Authorization': `Bearer ${tokens.access_token}`,
+        },
+      });
+
+      const userData = await userResponse.json();
+
+      if (!userResponse.ok) {
+        console.error('Calendly user fetch failed:', userData);
+        return res.redirect('/?calendly=error');
+      }
+
+      // Save calendar integration
+      const integrationData = {
+        userId: userId as string,
+        provider: 'calendly' as const,
+        accountEmail: userData.resource.email || '',
+        accessToken: tokens.access_token || '',
+        refreshToken: tokens.refresh_token || '',
+        expiresAt: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : undefined,
+        isActive: true
+      };
+
+      await storage.createCalendarIntegration(integrationData);
+
+      // Redirect back to dashboard with success
+      res.redirect('/?calendly=connected');
+    } catch (error) {
+      console.error("Error in Calendly OAuth callback:", error);
+      res.redirect('/?calendly=error');
+    }
+  });
+
+  app.get('/api/calendly/events', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { startDate, endDate } = req.query;
+
+      // Get Calendly calendar integration
+      const integrations = await storage.getCalendarIntegrations(userId);
+      const calendlyIntegration = integrations.find(i => i.provider === 'calendly' && i.isActive);
+
+      if (!calendlyIntegration) {
+        return res.status(404).json({ message: "Calendly not connected" });
+      }
+
+      // Get user's organization URI first
+      const userResponse = await fetch('https://api.calendly.com/users/me', {
+        headers: {
+          'Authorization': `Bearer ${calendlyIntegration.accessToken}`,
+        },
+      });
+
+      const userData = await userResponse.json();
+
+      if (!userResponse.ok) {
+        console.error('Failed to get Calendly user data:', userData);
+        return res.status(500).json({ message: "Failed to fetch user data from Calendly" });
+      }
+
+      const organizationUri = userData.resource.current_organization;
+
+      // Fetch scheduled events
+      const params = new URLSearchParams({
+        organization: organizationUri,
+        status: 'active'
+      });
+
+      if (startDate) {
+        params.append('min_start_time', new Date(startDate as string).toISOString());
+      }
+      if (endDate) {
+        params.append('max_start_time', new Date(endDate as string).toISOString());
+      }
+
+      const eventsResponse = await fetch(`https://api.calendly.com/scheduled_events?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${calendlyIntegration.accessToken}`,
+        },
+      });
+
+      const eventsData = await eventsResponse.json();
+
+      if (!eventsResponse.ok) {
+        console.error('Failed to fetch Calendly events:', eventsData);
+        return res.status(500).json({ message: "Failed to fetch Calendly events" });
+      }
+
+      const formattedEvents = eventsData.collection?.map((event: any) => ({
+        id: event.uri,
+        title: event.name || 'Calendly Event',
+        start: event.start_time,
+        end: event.end_time,
+        description: `Calendly event: ${event.event_type?.name || 'Unknown type'}`,
+        location: event.location?.join_url || event.location?.location,
+        source: 'calendly'
+      })) || [];
+
+      res.json(formattedEvents);
+    } catch (error) {
+      console.error("Error fetching Calendly events:", error);
+      res.status(500).json({ message: "Failed to fetch Calendly events" });
     }
   });
 

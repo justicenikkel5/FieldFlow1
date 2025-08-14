@@ -17,7 +17,7 @@ import {
   Mail,
   Phone
 } from "lucide-react";
-import GoogleCalendarConnect from "@/components/GoogleCalendarConnect";
+import CalendarIntegrations from "@/components/GoogleCalendarConnect";
 
 export default function Dashboard() {
   const { toast } = useToast();
@@ -68,22 +68,40 @@ export default function Dashboard() {
     }
   }, [user, isLoading, toast]);
 
-  // Handle Google Calendar connection success/error from URL params
+  // Handle calendar connection success/error from URL params
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const googleCalendar = urlParams.get('google_calendar');
+    const calendly = urlParams.get('calendly');
     
     if (googleCalendar === 'connected') {
       toast({
-        title: "Calendar Connected!",
+        title: "Google Calendar Connected!",
         description: "Your Google Calendar has been successfully connected to FieldFlow.",
       });
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (googleCalendar === 'error') {
       toast({
-        title: "Connection Failed",
+        title: "Google Calendar Connection Failed",
         description: "There was an error connecting your Google Calendar. Please try again.",
+        variant: "destructive",
+      });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    if (calendly === 'connected') {
+      toast({
+        title: "Calendly Connected!",
+        description: "Your Calendly account has been successfully connected to FieldFlow.",
+      });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (calendly === 'error') {
+      toast({
+        title: "Calendly Connection Failed",
+        description: "There was an error connecting your Calendly account. Please try again.",
         variant: "destructive",
       });
       // Clean up URL
@@ -424,17 +442,7 @@ export default function Dashboard() {
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                          <CalendarIcon className="w-4 h-4 text-orange-600" />
-                        </div>
-                        <span className="font-medium text-textPrimary">Calendly</span>
-                      </div>
-                      <Button variant="ghost" size="sm" disabled>
-                        Coming Soon
-                      </Button>
-                    </div>
+                    
 
                     <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center space-x-3">
@@ -497,7 +505,7 @@ export default function Dashboard() {
           
           {/* Google Calendar Integration */}
           <div className="lg:col-span-1">
-            <GoogleCalendarConnect integrations={integrations || []} />
+            <CalendarIntegrations integrations={integrations || []} />
           </div>
         </div>
       </div>

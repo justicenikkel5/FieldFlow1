@@ -90,10 +90,17 @@ export default function Register() {
     }
   };
 
-  const handleCalendly = () => {
-    // For now, we'll treat Calendly the same as "just looking"
-    // In a real implementation, you'd integrate with Calendly's API
-    setError("Calendly integration coming soon! For now, you can connect Google Calendar or skip this step.");
+  const handleCalendly = async () => {
+    setIsLoading(true);
+    try {
+      // Mark that we want to connect Calendly after auth
+      localStorage.setItem('connectCalendly', 'true');
+      // Redirect to Replit auth
+      window.location.href = '/api/login';
+    } catch (err) {
+      setError("Registration failed. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   const renderDetailsStep = () => (
