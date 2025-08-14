@@ -66,7 +66,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: req.user.claims.firstName || '',
           lastName: req.user.claims.lastName || ''
         };
-        user = await storage.createUser(userData);
+        user = await storage.upsertUser(userData);
       }
       
       res.json(user);
@@ -150,7 +150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const appointment = await storage.createAppointment(appointmentData);
       res.status(201).json(appointment);
     } catch (error) {
-      if (error instanceof z.ZodError) {
+      if (error instanceof ZodError) {
         return res.status(400).json({ message: "Invalid appointment data", errors: error.errors });
       }
       console.error("Error creating appointment:", error);
@@ -228,7 +228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const template = await storage.createReminderTemplate(templateData);
       res.status(201).json(template);
     } catch (error) {
-      if (error instanceof z.ZodError) {
+      if (error instanceof ZodError) {
         return res.status(400).json({ message: "Invalid template data", errors: error.errors });
       }
       console.error("Error creating reminder template:", error);
@@ -259,7 +259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const integration = await storage.createCalendarIntegration(integrationData);
       res.status(201).json(integration);
     } catch (error) {
-      if (error instanceof z.ZodError) {
+      if (error instanceof ZodError) {
         return res.status(400).json({ message: "Invalid integration data", errors: error.errors });
       }
       console.error("Error creating calendar integration:", error);
@@ -294,7 +294,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerId = customer.id;
         
         // Update user with Stripe customer ID
-        await storage.updateUser(userId, { stripeCustomerId: customerId });
+        await storage.upsertUser({ 
+          id: userId,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          stripeCustomerId: customerId 
+        });
       }
 
       // Create payment intent

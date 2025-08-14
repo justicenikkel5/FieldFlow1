@@ -36,6 +36,21 @@ app.use((req, res, next) => {
   next();
 });
 
+// Add health check endpoints before all other routes for deployment
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    version: process.env.npm_package_version || '1.0.0',
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+app.get('/ping', (req, res) => {
+  res.status(200).send('pong');
+});
+
 (async () => {
   const server = await registerRoutes(app);
 
@@ -61,11 +76,58 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
+  
   server.listen({
     port,
     host: "0.0.0.0",
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    log(`health check available at http://0.0.0.0:${port}/health`);
   });
+
+  // Add comprehensive error handling for server startup
+  server.on('error', (error: any) => {
+    if (error.code === 'EADDRINUSE') {
+      log(`Port ${port} is already in use. Trying to kill existing process...`);
+      process.exit(1);
+    } else if (error.code === 'EACCES') {
+      log(`Permission denied to bind to port ${port}`);
+      process.exit(1);
+    } else {
+      log(`Server error: ${error.message}`);
+      console.error('Server startup error:', error);
+      process.exit(1);
+    }
+  });
+
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    process.exit(1);
+  });
+
+  // Handle unhandled promise rejections
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    process.exit(1);
+  });
+
+  // Graceful shutdown handling
+  const gracefulShutdown = (signal: string) => {
+    log(`Received ${signal}. Starting graceful shutdown...`);
+    server.close(() => {
+      log('HTTP server closed.');
+      process.exit(0);
+    });
+    
+    // Force shutdown after timeout
+    setTimeout(() => {
+      log('Forcing shutdown...');
+      process.exit(1);
+    }, 10000);
+  };
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 })();

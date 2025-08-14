@@ -288,7 +288,7 @@ export class DatabaseStorage implements IStorage {
     const [updatedIntegration] = await db
       .update(calendarIntegrations)
       .set({ ...updates, updatedAt: new Date() })
-      .where(and(eq(id, id), eq(userId, userId)))
+      .where(and(eq(calendarIntegrations.id, id), eq(calendarIntegrations.userId, userId)))
       .returning();
     return updatedIntegration;
   }
