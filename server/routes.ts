@@ -702,6 +702,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test endpoint to verify Mailgun configuration
+  app.get('/api/test/mailgun-config', isAuthenticated, async (req, res) => {
+    try {
+      const hasApiKey = !!process.env.MAILGUN_API_KEY;
+      const hasDomain = !!process.env.MAILGUN_DOMAIN;
+      
+      res.json({
+        mailgunConfigured: hasApiKey && hasDomain,
+        hasApiKey,
+        hasDomain,
+        domain: process.env.MAILGUN_DOMAIN // Safe to show domain
+        // Note: Never expose the actual API key in responses
+      });
+    } catch (error) {
+      console.error("Error checking Mailgun config:", error);
+      res.status(500).json({ message: "Failed to check Mailgun configuration" });
+    }
+  });
+
   // Stripe webhook endpoint
   app.post('/api/stripe/webhook', async (req: Request, res) => {
     try {
