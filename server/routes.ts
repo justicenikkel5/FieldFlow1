@@ -76,6 +76,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Handle post-registration calendar connection
+  app.post('/api/auth/complete-registration', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { connectGoogleCalendar } = req.body;
+      
+      if (connectGoogleCalendar) {
+        // Generate Google OAuth URL
+        const oauth2Client = new google.auth.OAuth2(
+          process.env.GOOGLE_CLIENT_ID,
+          process.env.GOOGLE_CLIENT_SECRET,
+          process.env.GOOGLE_REDIRECT_URI
+        );
+
+        const scopes = [
+          'https://www.googleapis.com/auth/calendar.readonly',
+          'https://www.googleapis.com/auth/userinfo.email',
+          'https://www.googleapis.com/auth/userinfo.profile'
+        ];
+
+        const authUrl = oauth2Client.generateAuthUrl({
+          access_type: 'offline',
+          scope: scopes,
+          state: userId,
+          prompt: 'consent'
+        });
+
+        res.json({ authUrl, redirectToDashboard: false });
+      } else {
+        // Skip calendar connection, go straight to dashboard
+        res.json({ redirectToDashboard: true });
+      }
+    } catch (error) {
+      console.error("Error completing registration:", error);
+      res.status(500).json({ message: "Failed to complete registration" });
+    }
+  });
+
   // Appointment routes
   app.get('/api/appointments', isAuthenticated, async (req: any, res) => {
     try {

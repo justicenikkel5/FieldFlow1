@@ -23,6 +23,74 @@ export default function Dashboard() {
   const { toast } = useToast();
   const { isLoading, user } = useAuth();
 
+  // Handle post-registration flow
+  useEffect(() => {
+    const handlePostRegistration = async () => {
+      const connectGoogleCalendar = localStorage.getItem('connectGoogleCalendar');
+      const skipCalendarConnection = localStorage.getItem('skipCalendarConnection');
+      
+      if (connectGoogleCalendar && user) {
+        // Clear the flag and initiate Google Calendar connection
+        localStorage.removeItem('connectGoogleCalendar');
+        localStorage.removeItem('pendingRegistration');
+        
+        try {
+          const response = await fetch('/api/auth/complete-registration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ connectGoogleCalendar: true })
+          });
+          
+          const data = await response.json();
+          if (data.authUrl) {
+            window.location.href = data.authUrl;
+            return;
+          }
+        } catch (error) {
+          console.error('Error initiating calendar connection:', error);
+        }
+      }
+      
+      if (skipCalendarConnection && user) {
+        // Clear the flag and show welcome message
+        localStorage.removeItem('skipCalendarConnection');
+        localStorage.removeItem('pendingRegistration');
+        
+        toast({
+          title: "Welcome to FieldFlow!",
+          description: "You can connect your calendar anytime from the integrations section.",
+        });
+      }
+    };
+    
+    if (user && !isLoading) {
+      handlePostRegistration();
+    }
+  }, [user, isLoading, toast]);
+
+  // Handle Google Calendar connection success/error from URL params
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const googleCalendar = urlParams.get('google_calendar');
+    
+    if (googleCalendar === 'connected') {
+      toast({
+        title: "Calendar Connected!",
+        description: "Your Google Calendar has been successfully connected to FieldFlow.",
+      });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (googleCalendar === 'error') {
+      toast({
+        title: "Connection Failed",
+        description: "There was an error connecting your Google Calendar. Please try again.",
+        variant: "destructive",
+      });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [toast]);
+
   // Redirect to home if not authenticated
   useEffect(() => {
     if (!isLoading && !user) {
@@ -318,14 +386,54 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                          <CalendarIcon className="w-4 h-4 text-green-600" />
+                    {integrations?.find(i => i.provider === 'google' && i.isActive) ? (
+                      <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                            <CalendarIcon className="w-4 h-4 text-green-600" />
+                          </div>
+                          <span className="font-medium text-textPrimary">Google Calendar</span>
                         </div>
-                        <span className="font-medium text-textPrimary">Google Calendar</span>
+                        <Badge variant="default">Connected</Badge>
                       </div>
-                      <Badge variant="default">Connected</Badge>
+                    ) : (
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <CalendarIcon className="w-4 h-4 text-gray-600" />
+                          </div>
+                          <span className="font-medium text-textPrimary">Google Calendar</span>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              const response = await fetch('/api/auth/google');
+                              const data = await response.json();
+                              if (data.authUrl) {
+                                window.location.href = data.authUrl;
+                              }
+                            } catch (error) {
+                              console.error('Error connecting Google Calendar:', error);
+                            }
+                          }}
+                        >
+                          Connect
+                        </Button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                          <CalendarIcon className="w-4 h-4 text-orange-600" />
+                        </div>
+                        <span className="font-medium text-textPrimary">Calendly</span>
+                      </div>
+                      <Button variant="ghost" size="sm" disabled>
+                        Coming Soon
+                      </Button>
                     </div>
 
                     <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
