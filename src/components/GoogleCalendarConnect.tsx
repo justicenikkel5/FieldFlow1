@@ -53,6 +53,7 @@ export default function CalendarIntegrations({ integrations }: CalendarIntegrati
   const connectCalendly = async () => {
     setIsConnectingCalendly(true);
     try {
+      console.log('Starting Calendly connection...');
       const response = await fetch('/api/auth/calendly', {
         method: 'GET',
         credentials: 'include',
@@ -60,9 +61,16 @@ export default function CalendarIntegrations({ integrations }: CalendarIntegrati
           'Content-Type': 'application/json'
         }
       });
+      console.log('Calendly response received:', response.status);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
+      console.log('Calendly data:', data);
       
       if (data.authUrl) {
+        console.log('Redirecting to Calendly auth URL');
         window.location.href = data.authUrl;
       } else {
         console.error('No auth URL received from Calendly endpoint');
