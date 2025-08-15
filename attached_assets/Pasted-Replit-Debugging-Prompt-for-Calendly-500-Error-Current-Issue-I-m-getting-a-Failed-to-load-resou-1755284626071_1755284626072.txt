@@ -1,0 +1,135 @@
+Replit Debugging Prompt for Calendly 500 Error
+
+## Current Issue
+I'm getting a "Failed to load resource: the server responded with a status of 500 ()" error when trying to integrate with the Calendly API. The error appears to be coming from `/api/calendly-appointments:1` endpoint.
+
+## Debug Request
+Please help me systematically debug this 500 Internal Server Error by checking these areas in order:
+
+### 1. **Request Format Validation**
+Examine my API request and verify:
+- **Headers**: Check if I'm using correct Content-Type headers
+  - Should be `application/json` for API calls to `https://api.calendly.com/`
+  - Should be `application/x-www-form-urlencoded` for OAuth token exchange at `https://auth.calendly.com/oauth/token`
+- **Request Body**: Verify JSON structure is valid and matches Calendly API requirements
+- **HTTP Method**: Confirm I'm using the correct HTTP method (GET, POST, etc.)
+- **Authorization Header**: Check Bearer token format: `Authorization: Bearer YOUR_ACCESS_TOKEN`
+
+### 2. **Environment Variables Check**
+Verify these environment variables are properly set in Replit secrets:
+```
+CALENDLY_CLIENT_ID=your_client_id
+CALENDLY_CLIENT_SECRET=your_client_secret
+CALENDLY_ACCESS_TOKEN=your_access_token (if using)
+CALENDLY_ENVIRONMENT=sandbox or production
+```
+
+### 3. **API Endpoint Verification**
+Confirm I'm using correct Calendly endpoints:
+- **OAuth**: `https://auth.calendly.com/oauth/token`
+- **API Base**: `https://api.calendly.com/`
+- **User Info**: `https://api.calendly.com/users/me`
+- **Event Types**: `https://api.calendly.com/event_types`
+
+### 4. **Error Logging Enhancement**
+Add comprehensive error logging to my code:
+```javascript
+try {
+  const response = await fetch(url, options);
+  console.log('Response status:', response.status);
+  console.log('Response headers:', response.headers);
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.log('Error response body:', errorText);
+    throw new Error(`HTTP ${response.status}: ${errorText}`);
+  }
+  
+  const data = await response.json();
+  return data;
+} catch (error) {
+  console.error('Full error details:', error);
+  console.error('Error stack:', error.stack);
+  throw error;
+}
+```
+
+### 5. **Network Request Inspection**
+Help me add debugging to inspect the actual network request being sent:
+```javascript
+console.log('Request URL:', url);
+console.log('Request method:', method);
+console.log('Request headers:', headers);
+console.log('Request body:', body);
+```
+
+### 6. **Common 500 Error Causes to Check**
+Review my code for these specific issues:
+
+**A. Malformed JSON in Request Body**
+- Ensure all JSON is properly stringified
+- Check for undefined values or circular references
+- Validate required fields are present
+
+**B. Authentication Issues**
+- Verify access token is valid and not expired
+- Check if token has required scopes
+- Confirm I'm not mixing sandbox/production credentials
+
+**C. API Rate Limiting**
+- Check if I'm hitting rate limits
+- Add retry logic with exponential backoff
+
+**D. Resource Not Found**
+- Verify user/organization IDs exist and are accessible
+- Check if I have permissions to access requested resources
+
+### 7. **Test with Minimal Request**
+Create a simple test to isolate the issue:
+```javascript
+// Test basic connectivity and authentication
+const testResponse = await fetch('https://api.calendly.com/users/me', {
+  headers: {
+    'Authorization': 'Bearer YOUR_ACCESS_TOKEN',
+    'Content-Type': 'application/json'
+  }
+});
+console.log('Test response status:', testResponse.status);
+```
+
+### 8. **Replit-Specific Checks**
+- Verify my Replit app has outbound network access
+- Check if any firewall rules are blocking Calendly domains
+- Confirm environment variables are accessible in the runtime context
+- Test if the error occurs in Replit's development vs deployed environment
+
+### 9. **Browser Network Tab Analysis**
+If this is a frontend request, help me:
+- Open Chrome DevTools Network tab
+- Reproduce the error
+- Examine the failed request details
+- Check request/response headers and payload
+
+### 10. **Alternative Testing Method**
+Help me create a curl command to test the same request outside of Replit:
+```bash
+curl -X POST https://api.calendly.com/your-endpoint \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"your": "data"}'
+```
+
+## Expected Outcome
+Please provide:
+1. **Root Cause Identification**: What's causing the 500 error
+2. **Specific Fix**: Code changes needed to resolve the issue
+3. **Prevention**: How to avoid similar errors in future
+4. **Testing Steps**: How to verify the fix works
+
+## Additional Context
+- Using Calendly OAuth integration
+- Running in Replit environment
+- Error appears in browser console as resource loading failure
+- Endpoint shows `/api/calendly-appointments:1` in error message
+
+Please analyze my code step-by-step and help identify exactly what's causing this 500 error and how to fix it.
