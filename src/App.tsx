@@ -9,20 +9,26 @@ import Dashboard from "@/pages/dashboard";
 import Register from "./pages/register";
 import SignIn from "./pages/signin";
 import PaymentTest from "./pages/payment-test";
+import PrivacyPolicy from "./pages/privacy-policy";
 import NotFound from "./pages/not-found";
+import { lazy } from "react";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
   return (
     <Switch>
+      {/* Public routes - always accessible */}
+      <Route path="/privacy-policy" component={PrivacyPolicy} />
+      <Route path="/register" component={Register} />
+      <Route path="/signin" component={SignIn} />
+      
+      {/* Protected/conditional routes */}
       {isLoading || !isAuthenticated ? (
         <Route path="/" component={Landing} />
       ) : (
         <Route path="/" component={Dashboard} />
       )}
-      <Route path="/register" component={Register} />
-      <Route path="/signin" component={SignIn} />
       <Route path="/payment-test" component={PaymentTest} />
       <Route component={NotFound} />
     </Switch>
