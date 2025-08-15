@@ -617,7 +617,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Following Calendly OAuth troubleshooting guide recommendations
-      const redirectUri = process.env.CALENDLY_REDIRECT_URL!;
+      const getRedirectUrl = () => {
+        if (process.env.NODE_ENV === 'development') {
+          return process.env.CALENDLY_REDIRECT_URL_DEV || 'http://localhost:5000/api/auth/calendly/callback';
+        }
+        return process.env.CALENDLY_REDIRECT_URL!;
+      };
+
+      const redirectUri = getRedirectUrl();
       const clientId = process.env.CALENDLY_CLIENT_ID!;
       
       const authUrl = `https://auth.calendly.com/oauth/authorize?client_id=${encodeURIComponent(clientId)}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(userId)}`;
@@ -638,6 +645,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/auth/calendly/callback', async (req, res) => {
     try {
+      const getRedirectUrl = () => {
+        if (process.env.NODE_ENV === 'development') {
+          return process.env.CALENDLY_REDIRECT_URL_DEV || 'http://localhost:5000/api/auth/calendly/callback';
+        }
+        return process.env.CALENDLY_REDIRECT_URL!;
+      };
+
       console.log('=== CALENDLY OAUTH CALLBACK ===');
       console.log('Query params:', req.query);
       
@@ -664,7 +678,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tokenParams = new URLSearchParams({
         grant_type: 'authorization_code',
         code: code as string,
-        redirect_uri: process.env.CALENDLY_REDIRECT_URL!,
+        redirect_uri: getRedirectUrl(),
         client_id: process.env.CALENDLY_CLIENT_ID!,
         client_secret: process.env.CALENDLY_CLIENT_SECRET!
       });
@@ -672,7 +686,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Token request params:', {
         grant_type: 'authorization_code',
         code: (code as string).substring(0, 10) + '...',
-        redirect_uri: process.env.CALENDLY_REDIRECT_URL,
+        redirect_uri: getRedirectUrl(),
         client_id: process.env.CALENDLY_CLIENT_ID?.substring(0, 10) + '...',
         client_secret_present: !!process.env.CALENDLY_CLIENT_SECRET
       });
