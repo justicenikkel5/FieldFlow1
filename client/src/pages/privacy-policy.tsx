@@ -2,7 +2,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function PrivacyPolicy() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      {/* Header Navigation */}
+      <header className="bg-white dark:bg-gray-900 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div className="flex items-center">
+              <a href="/" className="text-2xl font-bold text-primary">
+                FieldFlow
+              </a>
+            </div>
+            <nav className="flex space-x-8">
+              <a href="/" className="text-gray-600 hover:text-primary transition-colors">
+                Home
+              </a>
+              <a href="/register" className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
+                Get Started
+              </a>
+            </nav>
+          </div>
+        </div>
+      </header>
+
+      <div className="py-12 px-4">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
@@ -206,6 +228,7 @@ export default function PrivacyPolicy() {
             Return to FieldFlow
           </a>
         </div>
+      </div>
       </div>
     </div>
   );

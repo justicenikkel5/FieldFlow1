@@ -18,16 +18,19 @@ function Router() {
 
   return (
     <Switch>
+      {/* Public routes - always accessible */}
+      <Route path="/privacy-policy" component={PrivacyPolicy} />
+      <Route path="/register" component={Register} />
+      <Route path="/signin" component={SignIn} />
+      
+      {/* Protected/conditional routes */}
       {isLoading || !isAuthenticated ? (
         <Route path="/" component={Landing} />
       ) : (
         <Route path="/" component={Dashboard} />
       )}
-      <Route path="/register" component={Register} />
-      <Route path="/signin" component={SignIn} />
       <Route path="/payment-test" component={PaymentTest} />
       <Route path="/email-test" component={lazy(() => import("./pages/email-test"))} />
-      <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route component={NotFound} />
     </Switch>
   );
