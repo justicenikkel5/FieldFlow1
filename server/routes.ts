@@ -769,10 +769,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get upcoming appointments from Calendly for dashboard display
-  app.get('/api/calendly-appointments', isAuthenticated, async (req, res) => {
+  app.get('/api/calendly-appointments', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.user?.id;
+      const userId = req.user?.claims?.sub;
+      console.log('Calendly appointments endpoint accessed');
+      console.log('User ID from claims:', userId);
+      
       if (!userId) {
+        console.error('No user ID found in request');
         return res.status(401).json({ error: 'Unauthorized' });
       }
 

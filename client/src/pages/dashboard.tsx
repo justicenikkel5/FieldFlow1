@@ -152,10 +152,10 @@ export default function Dashboard() {
   // Check if Calendly is connected
   const calendlyIntegration = integrations?.find((i: any) => i.provider === 'calendly');
   
-  // Fetch Calendly appointments if connected
+  // Fetch Calendly appointments if connected (only when there's a valid integration with access token)
   const { data: calendlyAppointments, isLoading: calendlyLoading } = useQuery({
     queryKey: ["/api/calendly-appointments"],
-    enabled: !!calendlyIntegration,
+    enabled: !!calendlyIntegration && !!calendlyIntegration.accessToken,
   });
 
   if (isLoading || !user) {
