@@ -794,11 +794,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const calendlyIntegration = integrations.find(i => i.provider === 'calendly');
 
       if (!calendlyIntegration) {
-        return res.status(404).json({ error: 'Calendly not connected' });
+        console.log('No Calendly integration found for user:', userId);
+        return res.json([]); // Return empty array instead of 404
       }
 
       if (!calendlyIntegration.accessToken) {
-        return res.status(400).json({ error: 'No access token available' });
+        console.log('No access token available for Calendly integration');
+        return res.json([]); // Return empty array instead of 400
       }
 
       // Get user info from Calendly to fetch their event types

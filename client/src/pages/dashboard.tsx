@@ -156,6 +156,19 @@ export default function Dashboard() {
   const { data: calendlyAppointments, isLoading: calendlyLoading } = useQuery({
     queryKey: ["/api/calendly-appointments"],
     enabled: !!calendlyIntegration && !!calendlyIntegration.accessToken,
+    retry: false, // Don't retry on failure
+    queryFn: async () => {
+      const response = await fetch('/api/calendly-appointments', {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        if (response.status === 404) {
+          return []; // Return empty array for 404
+        }
+        throw new Error(`Failed to fetch Calendly appointments: ${response.status}`);
+      }
+      return response.json();
+    }
   });
 
   if (isLoading || !user) {
