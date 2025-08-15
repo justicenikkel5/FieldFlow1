@@ -596,6 +596,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Calendly OAuth routes
   app.get('/api/auth/calendly', isAuthenticated, async (req: any, res) => {
     try {
+      console.log('Calendly auth endpoint accessed');
+      console.log('User authenticated:', !!req.user);
+      console.log('User claims:', req.user?.claims);
+      console.log('User ID:', req.user?.claims?.sub);
+      
+      if (!process.env.CALENDLY_CLIENT_ID) {
+        console.error('CALENDLY_CLIENT_ID not found');
+        return res.status(500).json({ message: "Calendly not configured" });
+      }
+      
+      if (!process.env.CALENDLY_REDIRECT_URL) {
+        console.error('CALENDLY_REDIRECT_URL not found');
+        return res.status(500).json({ message: "Calendly redirect URL not configured" });
+      }
+
       const authUrl = `https://auth.calendly.com/oauth/authorize?${new URLSearchParams({
         client_id: process.env.CALENDLY_CLIENT_ID!,
         response_type: 'code',
@@ -603,6 +618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         state: req.user.claims.sub, // Pass user ID in state
       })}`;
 
+      console.log('Generated Calendly auth URL:', authUrl);
       res.json({ authUrl });
     } catch (error) {
       console.error("Error generating Calendly auth URL:", error);
