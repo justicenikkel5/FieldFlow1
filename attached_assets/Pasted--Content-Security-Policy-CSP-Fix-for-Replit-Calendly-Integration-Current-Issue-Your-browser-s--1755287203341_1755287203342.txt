@@ -1,0 +1,258 @@
+ Content Security Policy (CSP) Fix for Replit Calendly Integration
+
+## Current Issue
+Your browser's Content Security Policy is blocking the use of `eval()` in JavaScript, which is preventing your Calendly integration from working properly. The error message indicates:
+
+> "Content Security Policy of your site blocks the use of 'eval' in JavaScript"
+
+## Understanding the Problem
+
+**What's Happening:**
+- CSP is a security feature that prevents code injection attacks
+- It's blocking JavaScript functions like `eval()`, `new Function()`, `setTimeout([string], ...)`, and `setInterval([string], ...)`
+- This commonly occurs when using third-party libraries or dynamically generated code
+
+**Why This Affects Calendly:**
+- Some JavaScript libraries (including potential Calendly widgets) may use dynamic code evaluation
+- OAuth token handling or API response processing might involve string evaluation
+- Third-party scripts often trigger CSP violations
+
+## Solution Options for Replit
+
+### Option 1: Fix the Code (Recommended)
+
+**Replace Unsafe JavaScript Functions:**
+
+Instead of using `eval()`:
+```javascript
+// ❌ Avoid this - triggers CSP violation
+const result = eval(someString);
+
+// ✅ Use this instead - parse JSON safely
+const result = JSON.parse(someString);
+```
+
+Instead of `new Function()`:
+```javascript
+// ❌ Avoid this - triggers CSP violation
+const fn = new Function('return ' + dynamicCode);
+
+// ✅ Use this instead - predefined functions
+const functionMap = {
+  'option1': () => { /* your code */ },
+  'option2': () => { /* your code */ }
+};
+const fn = functionMap[dynamicOption];
+```
+
+Instead of `setTimeout([string], ...)`:
+```javascript
+// ❌ Avoid this - triggers CSP violation
+setTimeout('someCode()', 1000);
+
+// ✅ Use this instead - function reference
+setTimeout(() => someCode(), 1000);
+```
+
+### Option 2: Add CSP Meta Tag (If Code Can't Be Changed)
+
+**In your HTML `<head>` section, add:**
+
+```html
+<meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-eval' https://assets.calendly.com https://calendly.com https://*.calendly.com;">
+```
+
+**More Secure CSP Header (Recommended):**
+```html
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' https://assets.calendly.com https://calendly.com https://*.calendly.com;
+  style-src 'self' 'unsafe-inline' https://assets.calendly.com;
+  img-src 'self' data: https://calendly.com https://*.calendly.com;
+  connect-src 'self' https://api.calendly.com https://auth.calendly.com;
+  frame-src https://calendly.com https://*.calendly.com;
+">
+```
+
+### Option 3: Configure CSP in Replit Server (Node.js/Express)
+
+**If using Express.js in Replit:**
+
+```javascript
+const express = require('express');
+const app = express();
+
+// Add CSP middleware
+app.use((req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; " +
+    "script-src 'self' https://assets.calendly.com https://calendly.com; " +
+    "style-src 'self' 'unsafe-inline' https://assets.calendly.com; " +
+    "img-src 'self' data: https://calendly.com; " +
+    "connect-src 'self' https://api.calendly.com https://auth.calendly.com; " +
+    "frame-src https://calendly.com;"
+  );
+  next();
+});
+```
+
+**If using vanilla Node.js HTTP server:**
+
+```javascript
+const http = require('http');
+
+const server = http.createServer((req, res) => {
+  // Set CSP header
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' https://assets.calendly.com; connect-src 'self' https://api.calendly.com https://auth.calendly.com;"
+  );
+  
+  // Your other response handling code
+});
+```
+
+## Step-by-Step Debugging for Replit
+
+### Step 1: Identify the Source
+**Check your code for these patterns:**
+```javascript
+// Search your files for these unsafe patterns:
+eval(...)
+new Function(...)
+setTimeout("string", ...)
+setInterval("string", ...)
+```
+
+### Step 2: Find the Offending Code
+**Common locations in Calendly integrations:**
+- OAuth token parsing logic
+- API response handling
+- Dynamic script loading
+- Third-party library usage
+
+### Step 3: Replace Unsafe Code
+**For JSON handling:**
+```javascript
+// ❌ Unsafe
+const tokenData = eval('(' + responseText + ')');
+
+// ✅ Safe
+const tokenData = JSON.parse(responseText);
+```
+
+**For dynamic function calls:**
+```javascript
+// ❌ Unsafe
+const dynamicFunction = new Function('data', 'return processCalendlyData(data)');
+
+// ✅ Safe - use predefined functions
+function processCalendlyResponse(data, type) {
+  switch(type) {
+    case 'appointment':
+      return handleAppointment(data);
+    case 'availability':
+      return handleAvailability(data);
+    default:
+      return handleGeneral(data);
+  }
+}
+```
+
+### Step 4: Test the Fix
+
+**1. Remove any CSP-violating code**
+**2. Restart your Replit application**
+**3. Check browser console for CSP errors**
+**4. Verify Calendly integration works**
+
+## Calendly-Specific CSP Configuration
+
+**For Calendly Widget Integration:**
+```html
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' https://assets.calendly.com https://widget.calendly.com;
+  style-src 'self' 'unsafe-inline' https://assets.calendly.com;
+  img-src 'self' data: https://*.calendly.com;
+  connect-src 'self' https://api.calendly.com https://auth.calendly.com;
+  frame-src https://calendly.com https://*.calendly.com;
+  font-src 'self' https://assets.calendly.com;
+">
+```
+
+**For API-Only Integration:**
+```html
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self';
+  connect-src 'self' https://api.calendly.com https://auth.calendly.com;
+  img-src 'self' data:;
+">
+```
+
+## Security Best Practices
+
+### ✅ Recommended Approaches:
+- **Avoid `'unsafe-eval'`** - refactor code instead
+- **Be specific with domains** - only allow necessary Calendly domains
+- **Use `'self'` where possible** - restrict to your own domain
+- **Validate all inputs** - especially API responses
+
+### ❌ Avoid These (Security Risks):
+- `'unsafe-eval'` - allows arbitrary code execution
+- `'unsafe-inline'` - allows inline scripts (use sparingly)
+- `*` wildcard - allows all domains (too permissive)
+
+## Testing Your Fix
+
+### 1. Browser Console Check
+```javascript
+// Open browser console and run:
+console.log('CSP test - no eval errors should appear');
+
+// If you still see CSP errors, they'll appear in red
+```
+
+### 2. Network Tab Verification
+- Open Chrome DevTools → Network tab
+- Reload your page
+- Look for any blocked requests (they'll appear in red)
+- Verify Calendly API calls are successful
+
+### 3. Functionality Test
+- Test your OAuth flow end-to-end
+- Verify API calls work without CSP violations
+- Check that all Calendly features function properly
+
+## If Problems Persist
+
+**Check these areas:**
+1. **Third-party libraries** - some may require `'unsafe-eval'`
+2. **Dynamic imports** - ensure all scripts are properly whitelisted
+3. **Inline event handlers** - convert to addEventListener calls
+4. **Template engines** - some may use eval-like functions
+
+**Debug commands for Replit:**
+```javascript
+// Add this to temporarily identify CSP violations
+window.addEventListener('securitypolicyviolation', (e) => {
+  console.log('CSP Violation:', e);
+  console.log('Blocked URI:', e.blockedURI);
+  console.log('Original Policy:', e.originalPolicy);
+});
+```
+
+## Emergency Workaround (Not Recommended for Production)
+
+**Only if you absolutely cannot fix the code:**
+```html
+<meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-eval' https://assets.calendly.com;">
+```
+
+⚠️ **Warning:** This reduces security. Only use temporarily while fixing the underlying code issues.
+
+---
+
+**Remember:** The goal is to fix the code rather than weaken security. CSP violations usually indicate code that can be refactored to be both secure and functional.
