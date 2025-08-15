@@ -623,7 +623,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         state: userId, // Pass user ID in state
       })}`;
 
-      console.log('Generated Calendly auth URL for user:', userId);
+      console.log('=== CALENDLY OAUTH URL GENERATION ===');
+      console.log('Client ID exists:', !!process.env.CALENDLY_CLIENT_ID);
+      console.log('Redirect URL exists:', !!process.env.CALENDLY_REDIRECT_URL);
+      console.log('Generated auth URL:', authUrl);
+      console.log('======================================');
+      
       res.json({ authUrl });
     } catch (error) {
       console.error("Error generating Calendly auth URL:", error);

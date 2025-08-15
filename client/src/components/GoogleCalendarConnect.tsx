@@ -53,7 +53,9 @@ export default function CalendarIntegrations({ integrations }: CalendarIntegrati
   const connectCalendly = async () => {
     setIsConnectingCalendly(true);
     try {
-      console.log('Starting Calendly connection...');
+      console.log('=== STARTING CALENDLY CONNECTION ===');
+      console.log('Making request to /api/auth/calendly...');
+      
       const response = await fetch('/api/auth/calendly', {
         method: 'GET',
         credentials: 'include',
@@ -61,23 +63,31 @@ export default function CalendarIntegrations({ integrations }: CalendarIntegrati
           'Content-Type': 'application/json'
         }
       });
-      console.log('Calendly response received:', response.status);
+      
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response body:', errorText);
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();
-      console.log('Calendly data:', data);
+      console.log('Response data:', data);
       
       if (data.authUrl) {
-        console.log('Redirecting to Calendly auth URL');
+        console.log('Auth URL received:', data.authUrl);
+        console.log('Redirecting to Calendly OAuth page...');
         window.location.href = data.authUrl;
       } else {
-        console.error('No auth URL received from Calendly endpoint');
+        console.error('No auth URL in response');
         setIsConnectingCalendly(false);
       }
     } catch (error) {
-      console.error('Error connecting to Calendly:', error);
+      console.error('=== CALENDLY CONNECTION ERROR ===');
+      console.error('Error details:', error);
+      console.error('==============================');
       setIsConnectingCalendly(false);
     }
   };
