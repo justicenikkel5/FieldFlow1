@@ -820,8 +820,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      const integrations = await storage.getCalendarIntegrationsByUserId(userId);
-      const calendlyIntegration = integrations.find(i => i.provider === 'calendly');
+      const integrations = await storage.getCalendarIntegrations();
+      const calendlyIntegration = integrations.find((i: any) => i.provider === 'calendly' && i.userId === userId);
 
       if (!calendlyIntegration) {
         console.log('No Calendly integration found for user:', userId);
