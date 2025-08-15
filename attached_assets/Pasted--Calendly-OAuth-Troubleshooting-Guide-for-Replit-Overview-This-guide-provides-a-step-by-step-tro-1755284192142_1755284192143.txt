@@ -1,0 +1,288 @@
+ Calendly OAuth Troubleshooting Guide for Replit
+
+## Overview
+This guide provides a step-by-step troubleshooting approach for resolving 401, 404, and 500 errors when implementing Calendly OAuth in Replit. Follow each step sequentially to identify and fix configuration issues.
+
+## Prerequisites Checklist
+
+Before starting troubleshooting, verify you have:
+- [x] A Calendly Developer Account (separate from your regular Calendly account)
+- [x] Created an OAuth app in the [Calendly Developer Portal](https://developer.calendly.com)
+- [x] Client ID, Client Secret, and Redirect URI from your app configuration
+- [x] Your Replit application URL (for redirect URI configuration)
+
+## Step 1: Verify Basic App Configuration
+
+### 1.1 Check Your OAuth App Settings
+Visit your [Calendly Developer Portal](https://developer.calendly.com) and verify:
+
+**App Configuration:**
+- **Environment**: Start with **Sandbox** for testing, then create separate **Production** app
+- **App Type**: Should be **Web** (not Native)
+- **Redirect URI**: 
+  - Sandbox: `http://localhost:PORT` OR your Replit URL
+  - Production: **MUST be HTTPS** - `https://your-app-name.your-username.repl.co/callback`
+
+### 1.2 Environment Variables in Replit
+Set these environment variables in your Replit secrets:
+
+```bash
+CALENDLY_CLIENT_ID=your_client_id_here
+CALENDLY_CLIENT_SECRET=your_client_secret_here
+CALENDLY_REDIRECT_URI=https://your-app-name.your-username.repl.co/callback
+CALENDLY_ENVIRONMENT=sandbox  # or production
+```
+
+**Critical Notes:**
+- Client Secret is **only shown once** during app creation
+- If lost, you must create a new OAuth application
+- Never expose these values in your code
+
+## Step 2: Verify Redirect URI Configuration
+
+### 2.1 Exact URI Matching Test
+The redirect URI in your OAuth app **must exactly match** what you use in code:
+
+**Common Mismatch Issues:**
+- Protocol difference: `http://` vs `https://`
+- Trailing slash: `/callback` vs `/callback/`
+- Port numbers: `:3000` vs no port
+- Case sensitivity: `Callback` vs `callback`
+
+### 2.2 Replit URL Format
+Your Replit app URL should follow this pattern:
+```
+https://your-app-name.your-username.repl.co
+```
+
+**To find your exact URL:**
+1. Open your Replit project
+2. Click the "Run" button
+3. Copy the URL from the webview panel
+4. Add your callback path: `/callback` or `/auth/calendly`
+
+## Step 3: Test Authorization Flow Step-by-Step
+
+### 3.1 Authorization URL Construction
+Create the authorization URL with exact parameters:
+
+```javascript
+const authUrl = `https://auth.calendly.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
+```
+
+**Test manually:**
+1. Copy this URL and paste in browser
+2. You should see Calendly login page
+3. After login, should redirect to your URI with `code` parameter
+
+### 3.2 Verify Authorization Code Receipt
+Check that you receive the authorization code correctly:
+
+```javascript
+// In your callback handler
+const authCode = req.query.code;
+console.log('Received auth code:', authCode);
+
+if (!authCode) {
+    console.log('Error:', req.query.error);
+    console.log('Error description:', req.query.error_description);
+}
+```
+
+## Step 4: Debug Token Exchange Request
+
+### 4.1 Correct Token Exchange Format
+Use this exact format for the token exchange:
+
+```javascript
+const tokenResponse = await fetch('https://auth.calendly.com/oauth/token', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: authCode,
+        redirect_uri: REDIRECT_URI, // Must match exactly
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET
+    })
+});
+```
+
+### 4.2 Common Token Exchange Errors
+
+**401 Unauthorized:**
+- Check Client ID and Secret are correct
+- Verify they match your OAuth app environment (Sandbox vs Production)
+
+**400 Bad Request - "invalid_grant":**
+- Authorization code expired (10-minute limit)
+- Redirect URI mismatch
+- Code already used (codes are single-use only)
+
+**404 Not Found:**
+- Wrong token endpoint URL
+- Should be: `https://auth.calendly.com/oauth/token`
+
+## Step 5: Test API Access
+
+### 5.1 Verify Access Token Format
+After successful token exchange, test the access token:
+
+```javascript
+const userResponse = await fetch('https://api.calendly.com/users/me', {
+    headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+    }
+});
+
+console.log('User API Status:', userResponse.status);
+console.log('User API Response:', await userResponse.json());
+```
+
+### 5.2 API Endpoint Verification
+**Correct Base URLs:**
+- Auth endpoints: `https://auth.calendly.com/`
+- API endpoints: `https://api.calendly.com/`
+
+**Common 500 Errors:**
+- Malformed JSON in request body
+- Missing or incorrect Content-Type headers
+- Invalid resource URIs in API calls
+
+## Step 6: Environment-Specific Debugging
+
+### 6.1 Sandbox vs Production Differences
+
+**Sandbox Environment:**
+- Allows HTTP redirect URIs with localhost
+- More flexible for development
+- Limited test data available
+
+**Production Environment:**
+- **Requires HTTPS** redirect URIs
+- Works with real Calendly user data
+- Stricter security requirements
+
+### 6.2 Replit-Specific Considerations
+
+**HTTPS Requirements:**
+- Replit provides HTTPS by default for your app URLs
+- Always use HTTPS URLs for Production environment
+- Test locally with HTTP only in Sandbox
+
+**Port Handling:**
+- Replit handles ports automatically
+- Don't specify ports in your redirect URI
+- Use the full Replit-provided URL
+
+## Step 7: Debugging Tools and Testing
+
+### 7.1 Use curl for Testing
+Test token exchange manually with curl:
+
+```bash
+curl --request POST \
+  --url https://auth.calendly.com/oauth/token \
+  --header 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode 'grant_type=authorization_code' \
+  --data-urlencode 'code=YOUR_AUTH_CODE' \
+  --data-urlencode 'redirect_uri=YOUR_REDIRECT_URI' \
+  --data-urlencode 'client_id=YOUR_CLIENT_ID' \
+  --data-urlencode 'client_secret=YOUR_CLIENT_SECRET'
+```
+
+### 7.2 Browser Developer Tools
+1. Open Network tab in browser developer tools
+2. Complete the OAuth flow
+3. Check for failed requests (red entries)
+4. Examine request/response headers and bodies
+
+### 7.3 Replit Debugging
+Add extensive logging in your Replit code:
+
+```javascript
+console.log('Environment:', process.env.CALENDLY_ENVIRONMENT);
+console.log('Client ID:', process.env.CALENDLY_CLIENT_ID);
+console.log('Redirect URI:', process.env.CALENDLY_REDIRECT_URI);
+console.log('Received code:', req.query.code);
+```
+
+## Step 8: Common Error Resolutions
+
+### 8.1 "Invalid Grant" Error
+**Causes:**
+- Authorization code expired (>10 minutes old)
+- Code already used (single-use only)
+- Redirect URI mismatch
+- Wrong environment (Sandbox credentials with Production endpoints)
+
+**Solutions:**
+1. Get fresh authorization code
+2. Verify exact redirect URI matching
+3. Check environment consistency
+
+### 8.2 "Invalid Client" Error
+**Causes:**
+- Wrong Client ID or Secret
+- Mixing Sandbox and Production credentials
+
+**Solutions:**
+1. Regenerate OAuth app if Client Secret lost
+2. Verify environment matches credentials
+
+### 8.3 Connection/Network Errors
+**Causes:**
+- Wrong endpoint URLs
+- Network connectivity issues
+
+**Solutions:**
+1. Verify endpoint URLs are correct
+2. Test basic connectivity with curl
+3. Check Replit's outbound network access
+
+## Step 9: Final Verification Steps
+
+### 9.1 Complete Flow Test
+1. Start fresh authorization flow
+2. Complete user consent
+3. Receive authorization code
+4. Exchange for access token
+5. Make successful API call
+
+### 9.2 Production Readiness
+Before moving to Production:
+- [ ] Successful Sandbox testing completed
+- [ ] HTTPS redirect URI configured
+- [ ] Production OAuth app created
+- [ ] Environment variables updated
+- [ ] Full flow tested in Production environment
+
+## Additional Resources
+
+### Official Documentation
+- [Calendly Developer Portal](https://developer.calendly.com)
+- [OAuth Flow Guide](https://developer.calendly.com/how-to-access-calendly-data-on-behalf-of-authenticated-users)
+- [API Reference](https://developer.calendly.com/api-docs)
+- [Getting Started Guide](https://developer.calendly.com/getting-started)
+
+### Community Support
+- [Calendly Developer Community](https://community.calendly.com/developer-community-60)
+- [API + Webhook Help Forum](https://community.calendly.com/api-webhook-help-61)
+
+### Key API Endpoints
+- **Authorization**: `https://auth.calendly.com/oauth/authorize`
+- **Token Exchange**: `https://auth.calendly.com/oauth/token`
+- **User Info**: `https://api.calendly.com/users/me`
+- **Current User**: `https://api.calendly.com/users/me`
+
+## Emergency Contact
+If all troubleshooting steps fail, contact Calendly developer support:
+- Email: support+developer@calendly.com
+- Include: OAuth app details, error messages, request/response logs
+
+---
+
+**Remember:** There is **no manual verification or approval process** for Calendly OAuth apps. All errors are configuration-related and can be resolved through proper setup and debugging.

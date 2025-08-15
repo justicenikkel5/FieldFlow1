@@ -616,16 +616,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: "Calendly redirect URL not configured" });
       }
 
-      const authUrl = `https://auth.calendly.com/oauth/authorize?${new URLSearchParams({
-        client_id: process.env.CALENDLY_CLIENT_ID!,
-        response_type: 'code',
-        redirect_uri: process.env.CALENDLY_REDIRECT_URL!,
-        state: userId, // Pass user ID in state
-      })}`;
+      // Following Calendly OAuth troubleshooting guide recommendations
+      const redirectUri = process.env.CALENDLY_REDIRECT_URL!;
+      const clientId = process.env.CALENDLY_CLIENT_ID!;
+      
+      const authUrl = `https://auth.calendly.com/oauth/authorize?client_id=${encodeURIComponent(clientId)}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(userId)}`;
 
       console.log('=== CALENDLY OAUTH URL GENERATION ===');
-      console.log('Client ID exists:', !!process.env.CALENDLY_CLIENT_ID);
-      console.log('Redirect URL exists:', !!process.env.CALENDLY_REDIRECT_URL);
+      console.log('Client ID:', clientId.substring(0, 10) + '...');
+      console.log('Redirect URI:', redirectUri);
+      console.log('User ID (state):', userId);
       console.log('Generated auth URL:', authUrl);
       console.log('======================================');
       
@@ -638,31 +638,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/auth/calendly/callback', async (req, res) => {
     try {
-      const { code, state: userId } = req.query;
+      console.log('=== CALENDLY OAUTH CALLBACK ===');
+      console.log('Query params:', req.query);
+      
+      const { code, state: userId, error, error_description } = req.query;
+      
+      // Check for OAuth errors first
+      if (error) {
+        console.error('OAuth error:', error);
+        console.error('Error description:', error_description);
+        return res.status(400).json({ message: `OAuth error: ${error} - ${error_description}` });
+      }
       
       if (!code || !userId) {
+        console.error('Missing required parameters');
+        console.error('Code present:', !!code);
+        console.error('User ID present:', !!userId);
         return res.status(400).json({ message: "Missing authorization code or user ID" });
       }
 
-      // Exchange code for tokens
+      // Exchange code for tokens - following guide's exact format
+      console.log('Starting token exchange...');
+      console.log('Auth code:', (code as string).substring(0, 10) + '...');
+      
+      const tokenParams = new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code as string,
+        redirect_uri: process.env.CALENDLY_REDIRECT_URL!,
+        client_id: process.env.CALENDLY_CLIENT_ID!,
+        client_secret: process.env.CALENDLY_CLIENT_SECRET!
+      });
+      
+      console.log('Token request params:', {
+        grant_type: 'authorization_code',
+        code: (code as string).substring(0, 10) + '...',
+        redirect_uri: process.env.CALENDLY_REDIRECT_URL,
+        client_id: process.env.CALENDLY_CLIENT_ID?.substring(0, 10) + '...',
+        client_secret_present: !!process.env.CALENDLY_CLIENT_SECRET
+      });
+      
       const tokenResponse = await fetch('https://auth.calendly.com/oauth/token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: new URLSearchParams({
-          client_id: process.env.CALENDLY_CLIENT_ID!,
-          client_secret: process.env.CALENDLY_CLIENT_SECRET!,
-          code: code as string,
-          grant_type: 'authorization_code',
-          redirect_uri: process.env.CALENDLY_REDIRECT_URL!,
-        }),
+        body: tokenParams,
       });
 
+      console.log('Token response status:', tokenResponse.status);
       const tokens = await tokenResponse.json();
+      console.log('Token response:', tokens);
 
       if (!tokenResponse.ok) {
-        console.error('Calendly token exchange failed:', tokens);
+        console.error('=== TOKEN EXCHANGE FAILED ===');
+        console.error('Status:', tokenResponse.status);
+        console.error('Response:', tokens);
         return res.redirect('/?calendly=error');
       }
 
