@@ -28,11 +28,14 @@ export default function CalendarIntegrations({ integrations }: CalendarIntegrati
   const connectGoogle = async () => {
     setIsConnectingGoogle(true);
     try {
-      const response = await fetch('/api/auth/google');
+      const response = await apiRequest('/api/auth/google');
       const data = await response.json();
       
       if (data.authUrl) {
         window.location.href = data.authUrl;
+      } else {
+        console.error('No auth URL received from Google endpoint');
+        setIsConnectingGoogle(false);
       }
     } catch (error) {
       console.error('Error connecting to Google Calendar:', error);
@@ -43,11 +46,14 @@ export default function CalendarIntegrations({ integrations }: CalendarIntegrati
   const connectCalendly = async () => {
     setIsConnectingCalendly(true);
     try {
-      const response = await fetch('/api/auth/calendly');
+      const response = await apiRequest('/api/auth/calendly');
       const data = await response.json();
       
       if (data.authUrl) {
         window.location.href = data.authUrl;
+      } else {
+        console.error('No auth URL received from Calendly endpoint');
+        setIsConnectingCalendly(false);
       }
     } catch (error) {
       console.error('Error connecting to Calendly:', error);
