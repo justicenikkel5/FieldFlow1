@@ -7,7 +7,7 @@ import {
   insertReminderTemplateSchema,
   insertCalendarIntegrationSchema 
 } from "@shared/schema";
-import { z, ZodError } from "zod";
+import { z } from "zod";
 import { StripeService } from "./stripe";
 import { Request } from "express";
 import { google } from "googleapis";
@@ -160,15 +160,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const user = await storage.getUser(userId);
         if (user && user.email) {
-          const appointmentDate = new Date(appointment.dateTime);
+          const appointmentDate = new Date(appointment.appointmentDate);
           await mailgunService.sendBookingConfirmation(
             user.email,
             `${user.firstName} ${user.lastName}`,
             {
-              title: appointment.title,
+              title: appointment.service,
               date: appointmentDate.toLocaleDateString(),
               time: appointmentDate.toLocaleTimeString(),
-              location: appointment.location || undefined,
+              location: appointment.notes || undefined,
               description: appointment.notes || undefined,
             }
           );
@@ -318,7 +318,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let customerId = user.stripeCustomerId;
       if (!customerId) {
         const customer = await StripeService.createCustomer({
-          email: user.email,
+          email: user.email || '',
           name: `${user.firstName} ${user.lastName}`,
           metadata: { userId }
         });

@@ -66,7 +66,9 @@ app.get('/api/debug/domains', (req, res) => {
 
 // Debug endpoint for OAuth configuration
 app.get('/api/debug/oauth', (req, res) => {
-  const currentDomain = `${req.protocol}://${req.get('host')}`;
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  const host = req.headers['x-forwarded-host'] || req.headers.host || req.get('host');
+  const currentDomain = `${protocol}://${host}`;
   const googleRedirectUri = `${currentDomain}/api/auth/google/callback`;
   
   res.json({
@@ -74,7 +76,13 @@ app.get('/api/debug/oauth', (req, res) => {
     googleRedirectUri,
     staticGoogleRedirectUri: process.env.GOOGLE_REDIRECT_URI,
     googleClientId: process.env.GOOGLE_CLIENT_ID ? 'Set' : 'Not Set',
-    needsGoogleConsoleUpdate: process.env.GOOGLE_REDIRECT_URI !== googleRedirectUri
+    needsGoogleConsoleUpdate: process.env.GOOGLE_REDIRECT_URI !== googleRedirectUri,
+    headers: {
+      'x-forwarded-proto': req.headers['x-forwarded-proto'],
+      'x-forwarded-host': req.headers['x-forwarded-host'],
+      'host': req.headers.host,
+      'protocol': req.protocol
+    }
   });
 });
 
