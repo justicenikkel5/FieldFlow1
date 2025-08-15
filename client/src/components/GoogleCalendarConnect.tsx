@@ -249,6 +249,14 @@ export default function CalendarIntegrations({ integrations }: CalendarIntegrati
             </div>
           ) : (
             <div className="space-y-4">
+              <div className="p-3 border rounded bg-yellow-50 dark:bg-yellow-900/20">
+                <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                  Calendly Not Connected
+                </p>
+                <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                  No active Calendly integration found in database.
+                </p>
+              </div>
               <p className="text-sm text-muted-foreground">
                 Connect your Calendly account to view your scheduled events alongside your FieldFlow appointments.
               </p>

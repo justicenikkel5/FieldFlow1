@@ -658,14 +658,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const integrationData = {
         userId: userId as string,
         provider: 'calendly' as const,
-        accountEmail: userData.resource.email || '',
         accessToken: tokens.access_token || '',
         refreshToken: tokens.refresh_token || '',
         expiresAt: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : undefined,
+        calendarId: userData.resource.uri || '',
         isActive: true
       };
 
+      console.log('Saving Calendly integration for user:', userId);
+      console.log('User email from Calendly:', userData.resource.email);
+      
       await storage.createCalendarIntegration(integrationData);
+      
+      console.log('Calendly integration saved successfully');
 
       // Redirect back to dashboard with success
       res.redirect('/?calendly=connected');
