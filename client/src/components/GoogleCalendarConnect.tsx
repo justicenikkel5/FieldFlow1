@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, ExternalLink, Trash2, Clock, TestTube, CheckCircle } from "lucide-react";
+import { Calendar, ExternalLink, Trash2, Clock } from "lucide-react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 
 
@@ -21,7 +21,6 @@ interface CalendarIntegrationsProps {
 export default function CalendarIntegrations({ integrations }: CalendarIntegrationsProps) {
   const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
   const [isConnectingCalendly, setIsConnectingCalendly] = useState(false);
-  const [showCalendlyTest, setShowCalendlyTest] = useState(false);
   const queryClient = useQueryClient();
 
   const googleIntegration = integrations?.find(i => i.provider === 'google');
@@ -83,18 +82,7 @@ export default function CalendarIntegrations({ integrations }: CalendarIntegrati
     }
   };
 
-  // Test Calendly events query
-  const { data: calendlyEvents, isLoading: isLoadingEvents, refetch: refetchEvents } = useQuery({
-    queryKey: ['/api/calendly/events'],
-    enabled: showCalendlyTest && !!calendlyIntegration,
-    queryFn: async () => {
-      const response = await fetch('/api/calendly/events', {
-        credentials: 'include'
-      });
-      if (!response.ok) throw new Error('Failed to fetch events');
-      return response.json();
-    }
-  });
+
 
   const deleteIntegrationMutation = useMutation({
     mutationFn: async (integrationId: string) => {
@@ -179,84 +167,21 @@ export default function CalendarIntegrations({ integrations }: CalendarIntegrati
                     Connected on {new Date(calendlyIntegration.createdAt).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowCalendlyTest(!showCalendlyTest)}
-                  >
-                    <TestTube className="h-3 w-3 mr-1" />
-                    Test
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => deleteIntegrationMutation.mutate(calendlyIntegration.id)}
-                    disabled={deleteIntegrationMutation.isPending}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => deleteIntegrationMutation.mutate(calendlyIntegration.id)}
+                  disabled={deleteIntegrationMutation.isPending}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
               <p className="text-sm text-muted-foreground">
                 Your Calendly scheduled events will be displayed alongside your appointments.
               </p>
-              
-              {/* Test Section */}
-              {showCalendlyTest && (
-                <div className="mt-4 p-4 border rounded-lg bg-muted/50">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-medium">Test Calendly Connection</h4>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => refetchEvents()}
-                      disabled={isLoadingEvents}
-                    >
-                      {isLoadingEvents ? (
-                        <Clock className="h-3 w-3 animate-spin mr-1" />
-                      ) : (
-                        'Refresh'
-                      )}
-                    </Button>
-                  </div>
-                  
-                  {isLoadingEvents ? (
-                    <p className="text-sm text-muted-foreground">Loading your Calendly events...</p>
-                  ) : calendlyEvents ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                        <span className="font-medium text-green-700">Connection successful!</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Found {calendlyEvents.length || 0} upcoming events from your Calendly account.
-                      </p>
-                      {calendlyEvents.length > 0 && (
-                        <div className="mt-2 text-xs text-muted-foreground">
-                          Latest event: {calendlyEvents[0]?.name || 'Untitled'} 
-                          {calendlyEvents[0]?.start_time && (
-                            <span> on {new Date(calendlyEvents[0].start_time).toLocaleDateString()}</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-red-600">Failed to fetch events. Check console for details.</p>
-                  )}
-                </div>
-              )}
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="p-3 border rounded bg-yellow-50 dark:bg-yellow-900/20">
-                <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                  Calendly Not Connected
-                </p>
-                <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                  No active Calendly integration found in database.
-                </p>
-              </div>
               <p className="text-sm text-muted-foreground">
                 Connect your Calendly account to view your scheduled events alongside your FieldFlow appointments.
               </p>

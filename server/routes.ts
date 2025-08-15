@@ -623,13 +623,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         state: userId, // Pass user ID in state
       })}`;
 
-      console.log('Generated Calendly auth URL:', authUrl);
-      console.log('Expected Client ID: hgkkzRPlOHvEcmW6FSj238YepgU0cLWAOPC-Esrh9XA');
-      console.log('Actual Client ID:', process.env.CALENDLY_CLIENT_ID);
-      console.log('Client ID Match:', process.env.CALENDLY_CLIENT_ID === 'hgkkzRPlOHvEcmW6FSj238YepgU0cLWAOPC-Esrh9XA');
-      console.log('Expected Redirect: https://fieldflownow.com/api/auth/calendly/callback');
-      console.log('Actual Redirect URI:', process.env.CALENDLY_REDIRECT_URL);
-      console.log('Redirect Match:', process.env.CALENDLY_REDIRECT_URL === 'https://fieldflownow.com/api/auth/calendly/callback');
+      console.log('Generated Calendly auth URL for user:', userId);
       res.json({ authUrl });
     } catch (error) {
       console.error("Error generating Calendly auth URL:", error);
