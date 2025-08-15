@@ -595,16 +595,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Calendly OAuth routes
-  app.get('/api/auth/calendly', async (req: any, res) => {
+  app.get('/api/auth/calendly', isAuthenticated, async (req: any, res) => {
     try {
-      console.log('Calendly auth endpoint accessed (auth temporarily disabled for debugging)');
-      console.log('Session exists:', !!req.session);
-      console.log('User in session:', !!req.user);
-      console.log('Is authenticated method:', typeof req.isAuthenticated);
-      console.log('Is authenticated result:', req.isAuthenticated && req.isAuthenticated());
+      console.log('Calendly auth endpoint accessed');
+      const userId = req.user?.claims?.sub;
+      console.log('User ID from claims:', userId);
       
-      // For now, let's hardcode a user ID for testing
-      const testUserId = '46383473'; // Your user ID from the logs
+      if (!userId) {
+        console.error('No user ID found in claims');
+        return res.status(401).json({ error: 'User ID not found' });
+      }
       
       if (!process.env.CALENDLY_CLIENT_ID) {
         console.error('CALENDLY_CLIENT_ID not found');
@@ -620,7 +620,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         client_id: process.env.CALENDLY_CLIENT_ID!,
         response_type: 'code',
         redirect_uri: process.env.CALENDLY_REDIRECT_URL!,
-        state: testUserId, // Use hardcoded user ID for testing
+        state: userId, // Pass user ID in state
       })}`;
 
       console.log('Generated Calendly auth URL:', authUrl);
