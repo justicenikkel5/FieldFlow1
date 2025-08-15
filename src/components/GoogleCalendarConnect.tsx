@@ -29,7 +29,7 @@ export default function CalendarIntegrations({ integrations }: CalendarIntegrati
   const connectGoogle = async () => {
     setIsConnectingGoogle(true);
     try {
-      const response = await apiRequest('/api/auth/google');
+      const response = await apiRequest('GET', '/api/auth/google');
       const data = await response.json();
       
       if (data.authUrl) {
@@ -47,7 +47,7 @@ export default function CalendarIntegrations({ integrations }: CalendarIntegrati
   const connectCalendly = async () => {
     setIsConnectingCalendly(true);
     try {
-      const response = await apiRequest('/api/auth/calendly');
+      const response = await apiRequest('GET', '/api/auth/calendly');
       const data = await response.json();
       
       if (data.authUrl) {
