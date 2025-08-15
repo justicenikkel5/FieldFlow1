@@ -84,11 +84,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { connectGoogleCalendar, connectCalendly } = req.body;
       
       if (connectGoogleCalendar) {
-        // Generate Google OAuth URL
+        // Generate Google OAuth URL with dynamic redirect URI
+        const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
+        
         const oauth2Client = new google.auth.OAuth2(
           process.env.GOOGLE_CLIENT_ID,
           process.env.GOOGLE_CLIENT_SECRET,
-          process.env.GOOGLE_REDIRECT_URI
+          redirectUri
         );
 
         const scopes = [
@@ -434,10 +436,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Google Calendar OAuth routes
   app.get('/api/auth/google', isAuthenticated, async (req: any, res) => {
     try {
+      // Dynamic redirect URI based on current domain
+      const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
+      
       const oauth2Client = new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
         process.env.GOOGLE_CLIENT_SECRET,
-        process.env.GOOGLE_REDIRECT_URI
+        redirectUri
       );
 
       const scopes = [
@@ -468,10 +473,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Missing authorization code or user ID" });
       }
 
+      // Dynamic redirect URI based on current domain
+      const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
+      
       const oauth2Client = new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
         process.env.GOOGLE_CLIENT_SECRET,
-        process.env.GOOGLE_REDIRECT_URI
+        redirectUri
       );
 
       // Exchange code for tokens

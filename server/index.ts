@@ -64,6 +64,20 @@ app.get('/api/debug/domains', (req, res) => {
   });
 });
 
+// Debug endpoint for OAuth configuration
+app.get('/api/debug/oauth', (req, res) => {
+  const currentDomain = `${req.protocol}://${req.get('host')}`;
+  const googleRedirectUri = `${currentDomain}/api/auth/google/callback`;
+  
+  res.json({
+    currentDomain,
+    googleRedirectUri,
+    staticGoogleRedirectUri: process.env.GOOGLE_REDIRECT_URI,
+    googleClientId: process.env.GOOGLE_CLIENT_ID ? 'Set' : 'Not Set',
+    needsGoogleConsoleUpdate: process.env.GOOGLE_REDIRECT_URI !== googleRedirectUri
+  });
+});
+
 (async () => {
   const server = await registerRoutes(app);
 
