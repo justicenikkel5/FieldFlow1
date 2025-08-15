@@ -752,6 +752,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get upcoming appointments from Calendly for dashboard display
+  app.get('/api/calendly-appointments', isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.session?.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const integrations = await storage.getCalendarIntegrationsByUserId(userId);
+      const calendlyIntegration = integrations.find(i => i.provider === 'calendly');
+
+      if (!calendlyIntegration) {
+        return res.status(404).json({ error: 'Calendly not connected' });
+      }
+
+      if (!calendlyIntegration.accessToken) {
+        return res.status(400).json({ error: 'No access token available' });
+      }
+
+      // Get user info from Calendly to fetch their event types
+      const userResponse = await fetch('https://api.calendly.com/users/me', {
+        headers: {
+          'Authorization': `Bearer ${calendlyIntegration.accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!userResponse.ok) {
+        console.error('Failed to fetch Calendly user info:', userResponse.status, userResponse.statusText);
+        return res.status(userResponse.status).json({ error: 'Failed to fetch user info from Calendly' });
+      }
+
+      const userData = await userResponse.json();
+      const userUri = userData.resource.uri;
+
+      // Get scheduled events for this user
+      const now = new Date();
+      const futureDate = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 days from now
+      
+      const params = new URLSearchParams({
+        user: userUri,
+        min_start_time: now.toISOString(),
+        max_start_time: futureDate.toISOString(),
+        status: 'active',
+        sort: 'start_time:asc'
+      });
+
+      const eventsResponse = await fetch(`https://api.calendly.com/scheduled_events?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${calendlyIntegration.accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!eventsResponse.ok) {
+        console.error('Failed to fetch Calendly events:', eventsResponse.status, eventsResponse.statusText);
+        return res.status(eventsResponse.status).json({ error: 'Failed to fetch events from Calendly' });
+      }
+
+      const eventsData = await eventsResponse.json();
+      
+      // Transform Calendly events to our appointment format for dashboard display
+      const appointments = eventsData.collection.map((event: any) => ({
+        id: event.uri.split('/').pop(),
+        title: event.name,
+        customerName: 'Calendly Guest', // We'll fetch actual names separately if needed
+        customerEmail: '', // Would need to fetch invitee details separately
+        appointmentDate: event.start_time,
+        endTime: event.end_time,
+        duration: Math.round((new Date(event.end_time).getTime() - new Date(event.start_time).getTime()) / (1000 * 60)), // duration in minutes
+        status: event.status === 'active' ? 'confirmed' : 'cancelled',
+        source: 'calendly',
+        eventUri: event.uri,
+        meetingUrl: event.location?.join_url || event.location?.data?.join_url || null,
+        eventType: event.event_type?.name || 'Unknown Event Type',
+        createdAt: event.created_at,
+        updatedAt: event.updated_at
+      }));
+
+      res.json(appointments);
+    } catch (error) {
+      console.error('Error fetching Calendly appointments:', error);
+      res.status(500).json({ error: 'Failed to fetch Calendly appointments' });
+    }
+  });
+
   // Test endpoint to verify Mailgun configuration
   app.get('/api/test/mailgun-config', isAuthenticated, async (req, res) => {
     try {

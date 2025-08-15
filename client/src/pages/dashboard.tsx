@@ -149,6 +149,15 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
+  // Check if Calendly is connected
+  const calendlyIntegration = integrations?.find((i: any) => i.provider === 'calendly');
+  
+  // Fetch Calendly appointments if connected
+  const { data: calendlyAppointments, isLoading: calendlyLoading } = useQuery({
+    queryKey: ["/api/calendly-appointments"],
+    enabled: !!calendlyIntegration,
+  });
+
   if (isLoading || !user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -299,7 +308,7 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {appointmentsLoading ? (
+                {(appointmentsLoading || calendlyLoading) ? (
                   <div className="space-y-4">
                     {Array.from({ length: 3 }).map((_, i) => (
                       <div key={i} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
@@ -312,50 +321,130 @@ export default function Dashboard() {
                       </div>
                     ))}
                   </div>
-                ) : appointments && appointments.length > 0 ? (
-                  appointments.map((appointment) => (
-                    <div key={appointment.id} className="flex items-center space-x-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                      <div className={`w-3 h-3 rounded-full ${
-                        appointment.status === 'confirmed' ? 'bg-secondary' :
-                        appointment.status === 'scheduled' ? 'bg-accent' : 'bg-primary'
-                      }`}></div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-textPrimary">{appointment.customerName}</p>
-                            <p className="text-sm text-textSecondary">{appointment.service}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium text-textPrimary">
-                              {new Date(appointment.appointmentDate).toLocaleTimeString('en-US', {
-                                hour: 'numeric',
-                                minute: '2-digit'
-                              })}
-                            </p>
-                            <p className="text-sm text-textSecondary">Today</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center space-x-2">
-                            <Badge variant={appointment.status === 'confirmed' ? 'default' : 'secondary'}>
-                              {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
-                            </Badge>
-                            <span className="text-xs text-textSecondary">
-                              {appointment.reminderSent ? 'Reminder sent' : 'Reminder pending'}
-                            </span>
-                          </div>
-                          <Button variant="ghost" size="sm">
-                            Send Follow-up
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
                 ) : (
-                  <div className="text-center py-8 text-textSecondary">
-                    <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>No appointments scheduled for today</p>
-                  </div>
+                  <>
+                    {/* FieldFlow Appointments */}
+                    {appointments && appointments.length > 0 && (
+                      <>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-medium text-muted-foreground">FieldFlow Appointments</h4>
+                        </div>
+                        {appointments.map((appointment) => (
+                          <div key={appointment.id} className="flex items-center space-x-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                            <div className={`w-3 h-3 rounded-full ${
+                              appointment.status === 'confirmed' ? 'bg-green-500' :
+                              appointment.status === 'scheduled' ? 'bg-blue-500' : 'bg-yellow-500'
+                            }`}></div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium text-textPrimary">{appointment.customerName}</p>
+                                  <p className="text-sm text-textSecondary">{appointment.service}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-medium text-textPrimary">
+                                    {new Date(appointment.appointmentDate).toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit'
+                                    })}
+                                  </p>
+                                  <p className="text-sm text-textSecondary">
+                                    {new Date(appointment.appointmentDate).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-center space-x-2">
+                                  <Badge variant={appointment.status === 'confirmed' ? 'default' : 'secondary'}>
+                                    {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                                  </Badge>
+                                  <span className="text-xs text-textSecondary">
+                                    {appointment.reminderSent ? 'Reminder sent' : 'Reminder pending'}
+                                  </span>
+                                </div>
+                                <Button variant="ghost" size="sm">
+                                  Send Follow-up
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+
+                    {/* Calendly Appointments */}
+                    {calendlyAppointments && calendlyAppointments.length > 0 && (
+                      <>
+                        <div className="flex items-center justify-between mb-3 pt-4">
+                          <h4 className="text-sm font-medium text-muted-foreground">Calendly Appointments</h4>
+                          <Badge variant="outline" className="text-orange-600 border-orange-600">
+                            <Calendar className="w-3 h-3 mr-1" />
+                            Calendly
+                          </Badge>
+                        </div>
+                        {calendlyAppointments.map((appointment: any) => (
+                          <div key={appointment.id} className="flex items-center space-x-4 p-4 bg-orange-50 rounded-lg border border-orange-100">
+                            <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium text-textPrimary">{appointment.title}</p>
+                                  <p className="text-sm text-textSecondary">{appointment.eventType}</p>
+                                  {appointment.meetingUrl && (
+                                    <a 
+                                      href={appointment.meetingUrl} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-blue-600 hover:underline"
+                                    >
+                                      Join Meeting
+                                    </a>
+                                  )}
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-medium text-textPrimary">
+                                    {new Date(appointment.appointmentDate).toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit'
+                                    })}
+                                  </p>
+                                  <p className="text-sm text-textSecondary">
+                                    {new Date(appointment.appointmentDate).toLocaleDateString()}
+                                  </p>
+                                  <p className="text-xs text-textSecondary">
+                                    {appointment.duration} min
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-center space-x-2">
+                                  <Badge variant="outline" className="text-orange-600">
+                                    {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                                  </Badge>
+                                  <span className="text-xs text-textSecondary">
+                                    From Calendly
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+
+                    {/* No appointments message */}
+                    {(!appointments || appointments.length === 0) && (!calendlyAppointments || calendlyAppointments.length === 0) && (
+                      <div className="text-center py-8 text-textSecondary">
+                        <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No upcoming appointments</p>
+                        {calendlyIntegration ? (
+                          <p className="text-sm mt-2">Your Calendly account is connected but no events found.</p>
+                        ) : (
+                          <p className="text-sm mt-2">Connect Calendly to see all your appointments in one place.</p>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>

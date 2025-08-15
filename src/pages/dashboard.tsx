@@ -6,10 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  Calendar, 
-  MessageSquare, 
-  CheckCircle, 
+import {
+  Calendar,
+  MessageSquare,
+  CheckCircle,
   AlertTriangle,
   BarChart3,
   RefreshCw,
@@ -17,14 +17,101 @@ import {
   Mail,
   Phone
 } from "lucide-react";
+import CalendarIntegrations from "@/components/GoogleCalendarConnect";
 
 export default function Dashboard() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isLoading, user } = useAuth();
+
+  // Handle post-registration flow
+  useEffect(() => {
+    const handlePostRegistration = async () => {
+      const connectGoogleCalendar = localStorage.getItem('connectGoogleCalendar');
+      const skipCalendarConnection = localStorage.getItem('skipCalendarConnection');
+
+      if (connectGoogleCalendar && user) {
+        // Clear the flag and initiate Google Calendar connection
+        localStorage.removeItem('connectGoogleCalendar');
+        localStorage.removeItem('pendingRegistration');
+
+        try {
+          const response = await fetch('/api/auth/complete-registration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ connectGoogleCalendar: true })
+          });
+
+          const data = await response.json();
+          if (data.authUrl) {
+            window.location.href = data.authUrl;
+            return;
+          }
+        } catch (error) {
+          console.error('Error initiating calendar connection:', error);
+        }
+      }
+
+      if (skipCalendarConnection && user) {
+        // Clear the flag and show welcome message
+        localStorage.removeItem('skipCalendarConnection');
+        localStorage.removeItem('pendingRegistration');
+
+        toast({
+          title: "Welcome to FieldFlow!",
+          description: "You can connect your calendar anytime from the integrations section.",
+        });
+      }
+    };
+
+    if (user && !isLoading) {
+      handlePostRegistration();
+    }
+  }, [user, isLoading, toast]);
+
+  // Handle calendar connection success/error from URL params
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const googleCalendar = urlParams.get('google_calendar');
+    const calendly = urlParams.get('calendly');
+
+    if (googleCalendar === 'connected') {
+      toast({
+        title: "Google Calendar Connected!",
+        description: "Your Google Calendar has been successfully connected to FieldFlow.",
+      });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (googleCalendar === 'error') {
+      toast({
+        title: "Google Calendar Connection Failed",
+        description: "There was an error connecting your Google Calendar. Please try again.",
+        variant: "destructive",
+      });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    if (calendly === 'connected') {
+      toast({
+        title: "Calendly Connected!",
+        description: "Your Calendly account has been successfully connected to FieldFlow.",
+      });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (calendly === 'error') {
+      toast({
+        title: "Calendly Connection Failed",
+        description: "There was an error connecting your Calendly account. Please try again.",
+        variant: "destructive",
+      });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [toast]);
 
   // Redirect to home if not authenticated
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !user) {
       toast({
         title: "Unauthorized",
         description: "You are logged out. Logging in again...",
@@ -35,34 +122,43 @@ export default function Dashboard() {
       }, 500);
       return;
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [user, isLoading, toast]);
 
   // Fetch dashboard stats
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/stats"],
-    enabled: isAuthenticated,
+    enabled: !!user,
   });
 
   // Fetch today's appointments
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  
+
   const { data: appointments, isLoading: appointmentsLoading } = useQuery({
-    queryKey: ["/api/appointments", { 
+    queryKey: ["/api/appointments", {
       startDate: today.toISOString().split('T')[0],
       endDate: tomorrow.toISOString().split('T')[0]
     }],
-    enabled: isAuthenticated,
+    enabled: !!user,
   });
 
   // Fetch calendar integrations
   const { data: integrations, isLoading: integrationsLoading } = useQuery({
     queryKey: ["/api/calendar-integrations"],
-    enabled: isAuthenticated,
+    enabled: !!user,
   });
 
-  if (isLoading || !isAuthenticated) {
+  // Check if Calendly is connected
+  const calendlyIntegration = integrations?.find((i: any) => i.provider === 'calendly');
+  
+  // Fetch Calendly appointments if connected
+  const { data: calendlyAppointments, isLoading: calendlyLoading } = useQuery({
+    queryKey: ["/api/calendly-appointments"],
+    enabled: !!calendlyIntegration,
+  });
+
+  if (isLoading || !user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="space-y-4">
@@ -85,7 +181,7 @@ export default function Dashboard() {
               </div>
               <span className="text-xl font-bold text-textPrimary">FieldFlow</span>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <Button variant="ghost" size="sm">
                 <RefreshCw className="w-4 h-4" />
@@ -212,7 +308,7 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {appointmentsLoading ? (
+                {(appointmentsLoading || calendlyLoading) ? (
                   <div className="space-y-4">
                     {Array.from({ length: 3 }).map((_, i) => (
                       <div key={i} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
@@ -225,50 +321,130 @@ export default function Dashboard() {
                       </div>
                     ))}
                   </div>
-                ) : appointments && appointments.length > 0 ? (
-                  appointments.map((appointment) => (
-                    <div key={appointment.id} className="flex items-center space-x-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                      <div className={`w-3 h-3 rounded-full ${
-                        appointment.status === 'confirmed' ? 'bg-secondary' : 
-                        appointment.status === 'scheduled' ? 'bg-accent' : 'bg-primary'
-                      }`}></div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-textPrimary">{appointment.customerName}</p>
-                            <p className="text-sm text-textSecondary">{appointment.service}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium text-textPrimary">
-                              {new Date(appointment.appointmentDate).toLocaleTimeString('en-US', { 
-                                hour: 'numeric', 
-                                minute: '2-digit' 
-                              })}
-                            </p>
-                            <p className="text-sm text-textSecondary">Today</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center space-x-2">
-                            <Badge variant={appointment.status === 'confirmed' ? 'default' : 'secondary'}>
-                              {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
-                            </Badge>
-                            <span className="text-xs text-textSecondary">
-                              {appointment.reminderSent ? 'Reminder sent' : 'Reminder pending'}
-                            </span>
-                          </div>
-                          <Button variant="ghost" size="sm">
-                            Send Follow-up
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
                 ) : (
-                  <div className="text-center py-8 text-textSecondary">
-                    <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>No appointments scheduled for today</p>
-                  </div>
+                  <>
+                    {/* FieldFlow Appointments */}
+                    {appointments && appointments.length > 0 && (
+                      <>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-medium text-muted-foreground">FieldFlow Appointments</h4>
+                        </div>
+                        {appointments.map((appointment) => (
+                          <div key={appointment.id} className="flex items-center space-x-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                            <div className={`w-3 h-3 rounded-full ${
+                              appointment.status === 'confirmed' ? 'bg-green-500' :
+                              appointment.status === 'scheduled' ? 'bg-blue-500' : 'bg-yellow-500'
+                            }`}></div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium text-textPrimary">{appointment.customerName}</p>
+                                  <p className="text-sm text-textSecondary">{appointment.service}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-medium text-textPrimary">
+                                    {new Date(appointment.appointmentDate).toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit'
+                                    })}
+                                  </p>
+                                  <p className="text-sm text-textSecondary">
+                                    {new Date(appointment.appointmentDate).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-center space-x-2">
+                                  <Badge variant={appointment.status === 'confirmed' ? 'default' : 'secondary'}>
+                                    {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                                  </Badge>
+                                  <span className="text-xs text-textSecondary">
+                                    {appointment.reminderSent ? 'Reminder sent' : 'Reminder pending'}
+                                  </span>
+                                </div>
+                                <Button variant="ghost" size="sm">
+                                  Send Follow-up
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+
+                    {/* Calendly Appointments */}
+                    {calendlyAppointments && calendlyAppointments.length > 0 && (
+                      <>
+                        <div className="flex items-center justify-between mb-3 pt-4">
+                          <h4 className="text-sm font-medium text-muted-foreground">Calendly Appointments</h4>
+                          <Badge variant="outline" className="text-orange-600 border-orange-600">
+                            <Calendar className="w-3 h-3 mr-1" />
+                            Calendly
+                          </Badge>
+                        </div>
+                        {calendlyAppointments.map((appointment: any) => (
+                          <div key={appointment.id} className="flex items-center space-x-4 p-4 bg-orange-50 rounded-lg border border-orange-100">
+                            <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium text-textPrimary">{appointment.title}</p>
+                                  <p className="text-sm text-textSecondary">{appointment.eventType}</p>
+                                  {appointment.meetingUrl && (
+                                    <a 
+                                      href={appointment.meetingUrl} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-blue-600 hover:underline"
+                                    >
+                                      Join Meeting
+                                    </a>
+                                  )}
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-medium text-textPrimary">
+                                    {new Date(appointment.appointmentDate).toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit'
+                                    })}
+                                  </p>
+                                  <p className="text-sm text-textSecondary">
+                                    {new Date(appointment.appointmentDate).toLocaleDateString()}
+                                  </p>
+                                  <p className="text-xs text-textSecondary">
+                                    {appointment.duration} min
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-center space-x-2">
+                                  <Badge variant="outline" className="text-orange-600">
+                                    {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                                  </Badge>
+                                  <span className="text-xs text-textSecondary">
+                                    From Calendly
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+
+                    {/* No appointments message */}
+                    {(!appointments || appointments.length === 0) && (!calendlyAppointments || calendlyAppointments.length === 0) && (
+                      <div className="text-center py-8 text-textSecondary">
+                        <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No upcoming appointments</p>
+                        {calendlyIntegration ? (
+                          <p className="text-sm mt-2">Your Calendly account is connected but no events found.</p>
+                        ) : (
+                          <p className="text-sm mt-2">Connect Calendly to see all your appointments in one place.</p>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -308,7 +484,7 @@ export default function Dashboard() {
                     {Array.from({ length: 3 }).map((_, i) => (
                       <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <div className="flex items-center space-x-3">
-                          <Skeleton className="w-8 h-8 rounded-lg" />
+                          <Skeleton className="w-5 h-5" />
                           <Skeleton className="h-4 w-24" />
                         </div>
                         <Skeleton className="h-6 w-16" />
@@ -317,36 +493,54 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                    {/* Google Calendar */}
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                          <CalendarIcon className="w-4 h-4 text-green-600" />
-                        </div>
+                        <CalendarIcon className="w-5 h-5 text-gray-600" />
                         <span className="font-medium text-textPrimary">Google Calendar</span>
                       </div>
-                      <Badge variant="default">Connected</Badge>
+                      {integrations?.find(i => i.provider === 'google' && i.isActive) ? (
+                        <Badge variant="default">Connected</Badge>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-primary hover:text-primary"
+                          onClick={async () => {
+                            try {
+                              const response = await fetch('/api/auth/google');
+                              const data = await response.json();
+                              if (data.authUrl) {
+                                window.location.href = data.authUrl;
+                              }
+                            } catch (error) {
+                              console.error('Error connecting Google Calendar:', error);
+                            }
+                          }}
+                        >
+                          Connect
+                        </Button>
+                      )}
                     </div>
 
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    {/* Vonage SMS */}
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <Phone className="w-4 h-4 text-gray-600" />
-                        </div>
+                        <Phone className="w-5 h-5 text-gray-600" />
                         <span className="font-medium text-textPrimary">Vonage SMS</span>
                       </div>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" className="text-primary hover:text-primary">
                         Connect
                       </Button>
                     </div>
 
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    {/* Mailgun Email */}
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <Mail className="w-4 h-4 text-gray-600" />
-                        </div>
+                        <Mail className="w-5 h-5 text-gray-600" />
                         <span className="font-medium text-textPrimary">Mailgun Email</span>
                       </div>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" className="text-primary hover:text-primary">
                         Connect
                       </Button>
                     </div>
@@ -384,6 +578,11 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+
+          {/* Google Calendar Integration */}
+          <div className="lg:col-span-1">
+            <CalendarIntegrations integrations={integrations || []} />
           </div>
         </div>
       </div>
