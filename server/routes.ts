@@ -85,7 +85,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (connectGoogleCalendar) {
         // Generate Google OAuth URL with dynamic redirect URI
-        const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+        const host = req.headers['x-forwarded-host'] || req.headers.host || req.get('host');
+        const redirectUri = `${protocol}://${host}/api/auth/google/callback`;
+        
+        console.log(`Registration Google OAuth redirect URI: ${redirectUri}`);
         
         const oauth2Client = new google.auth.OAuth2(
           process.env.GOOGLE_CLIENT_ID,
@@ -437,7 +441,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/google', isAuthenticated, async (req: any, res) => {
     try {
       // Dynamic redirect URI based on current domain
-      const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+      const host = req.headers['x-forwarded-host'] || req.headers.host || req.get('host');
+      const redirectUri = `${protocol}://${host}/api/auth/google/callback`;
+      
+      console.log(`Google OAuth redirect URI: ${redirectUri}`);
       
       const oauth2Client = new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
@@ -474,7 +482,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Dynamic redirect URI based on current domain
-      const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+      const host = req.headers['x-forwarded-host'] || req.headers.host || req.get('host');
+      const redirectUri = `${protocol}://${host}/api/auth/google/callback`;
+      
+      console.log(`Google OAuth callback redirect URI: ${redirectUri}`);
       
       const oauth2Client = new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
