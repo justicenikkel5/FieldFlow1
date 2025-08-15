@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, ExternalLink, Trash2, Clock } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+
 
 interface CalendarIntegration {
   id: string;
@@ -29,7 +29,13 @@ export default function CalendarIntegrations({ integrations }: CalendarIntegrati
   const connectGoogle = async () => {
     setIsConnectingGoogle(true);
     try {
-      const response = await apiRequest('GET', '/api/auth/google');
+      const response = await fetch('/api/auth/google', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       const data = await response.json();
       
       if (data.authUrl) {
@@ -47,7 +53,13 @@ export default function CalendarIntegrations({ integrations }: CalendarIntegrati
   const connectCalendly = async () => {
     setIsConnectingCalendly(true);
     try {
-      const response = await apiRequest('GET', '/api/auth/calendly');
+      const response = await fetch('/api/auth/calendly', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       const data = await response.json();
       
       if (data.authUrl) {
