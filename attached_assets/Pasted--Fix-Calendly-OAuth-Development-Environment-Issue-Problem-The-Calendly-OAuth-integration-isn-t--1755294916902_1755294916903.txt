@@ -1,0 +1,154 @@
+# Fix Calendly OAuth Development Environment Issue
+
+## Problem
+The Calendly OAuth integration isn't working in development because there's a redirect URI mismatch. The OAuth app is configured to redirect to production (`https://fieldflownow.com/api/auth/calendly/callback`) but we're developing locally.
+
+## Solution Required
+Implement environment-based redirect URI configuration so that:
+- **Development**: Uses `http://localhost:5000/api/auth/calendly/callback`
+- **Production**: Uses `https://fieldflownow.com/api/auth/calendly/callback`
+
+## Files to Modify
+
+### 1. Update Environment Variables
+Add to your `.env` file:
+```env
+# Development
+NODE_ENV=development
+CALENDLY_REDIRECT_URL_DEV=http://localhost:5000/api/auth/calendly/callback
+
+# Keep existing production URL
+CALENDLY_REDIRECT_URL=https://fieldflownow.com/api/auth/calendly/callback
+```
+
+### 2. Modify Backend OAuth Route (`server/routes.ts`)
+In the `/api/auth/calendly` endpoint, replace the redirect URI logic:
+
+**Find this code:**
+```javascript
+const redirectUri = process.env.CALENDLY_REDIRECT_URL!;
+```
+
+**Replace with:**
+```javascript
+const getRedirectUrl = () => {
+  if (process.env.NODE_ENV === 'development') {
+    return process.env.CALENDLY_REDIRECT_URL_DEV || 'http://localhost:5000/api/auth/calendly/callback';
+  }
+  return process.env.CALENDLY_REDIRECT_URL!;
+};
+
+const redirectUri = getRedirectUrl();
+```
+
+### 3. Update Callback Handler
+In the `/api/auth/calendly/callback` endpoint, also use the environment-based redirect URI:
+
+**Find this code:**
+```javascript
+redirect_uri: process.env.CALENDLY_REDIRECT_URL!,
+```
+
+**Replace with:**
+```javascript
+redirect_uri: getRedirectUrl(),
+```
+
+**Add the same helper function at the top of the callback handler:**
+```javascript
+const getRedirectUrl = () => {
+  if (process.env.NODE_ENV === 'development') {
+    return process.env.CALENDLY_REDIRECT_URL_DEV || 'http://localhost:5000/api/auth/calendly/callback';
+  }
+  return process.env.CALENDLY_REDIRECT_URL!;
+};
+```
+
+## Calendly OAuth App Configuration
+You'll also need to add the development redirect URI to your Calendly OAuth app:
+
+1. Go to Calendly Developer Dashboard
+2. Edit your OAuth app "FieldFlow Calendar Integration"
+3. Add this redirect URI: `http://localhost:5000/api/auth/calendly/callback`
+4. Save the changes
+
+## Testing
+After making these changes:
+1. Restart your development server
+2. Click "Connect Calendly" 
+3. You should be redirected to Calendly's authorization page
+4. After authorizing, you should return to your local callback handler
+5. Check the console logs to verify the token exchange works
+
+## Expected Behavior
+- Development: OAuth flow stays within local environment
+- Production: OAuth flow uses production URLs
+- No code changes needed when deploying to production
+
+## Fix Content Security Policy Issue
+
+The error `Refused to frame 'https://js.stripe.com/'` indicates your CSP is too restrictive. You need to update your Content Security Policy to allow both Calendly and Stripe.
+
+### Find and Update CSP Configuration
+
+Look for CSP configuration in these locations:
+
+#### Option 1: HTML Meta Tag (likely in `client/index.html`)
+**Find:**
+```html
+<meta http-equiv="Content-Security-Policy" content="frame-src https://calendly.com https://*.calendly.com">
+```
+
+**Replace with:**
+```html
+<meta http-equiv="Content-Security-Policy" content="frame-src https://calendly.com https://*.calendly.com https://js.stripe.com https://*.stripe.com">
+```
+
+#### Option 2: Express Server Headers (likely in `server/index.ts` or middleware)
+**Find:**
+```javascript
+res.setHeader('Content-Security-Policy', "frame-src https://calendly.com https://*.calendly.com");
+```
+
+**Replace with:**
+```javascript
+res.setHeader('Content-Security-Policy', "frame-src https://calendly.com https://*.calendly.com https://js.stripe.com https://*.stripe.com");
+```
+
+#### Option 3: Helmet.js Configuration
+**Find:**
+```javascript
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      frameSrc: ['https://calendly.com', 'https://*.calendly.com']
+    }
+  }
+}));
+```
+
+**Replace with:**
+```javascript
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      frameSrc: ['https://calendly.com', 'https://*.calendly.com', 'https://js.stripe.com', 'https://*.stripe.com']
+    }
+  }
+}));
+```
+
+### Search for CSP in Your Codebase
+Run this command to find where CSP is configured:
+```bash
+grep -r "Content-Security-Policy\|frame-src" . --include="*.html" --include="*.js" --include="*.ts"
+```
+
+## Testing After Fixes
+1. Make the environment redirect URI changes from above
+2. Update the CSP configuration 
+3. Restart your development server
+4. Clear browser cache/hard refresh
+5. Click "Connect Calendly" - you should now be redirected to Calendly's authorization page without CSP errors
+
+Please implement these changes and let me know if the OAuth flow works correctly in development.
