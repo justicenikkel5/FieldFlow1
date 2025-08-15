@@ -10,6 +10,7 @@ import Register from "./pages/register";
 import SignIn from "./pages/signin";
 import PaymentTest from "./pages/payment-test";
 import PrivacyPolicy from "./pages/privacy-policy";
+import TermsOfService from "./pages/terms-of-service";
 import NotFound from "./pages/not-found";
 import { lazy } from "react";
 
@@ -20,6 +21,7 @@ function Router() {
     <Switch>
       {/* Public routes - always accessible */}
       <Route path="/privacy-policy" component={PrivacyPolicy} />
+      <Route path="/terms-of-service" component={TermsOfService} />
       <Route path="/register" component={Register} />
       <Route path="/signin" component={SignIn} />
       
