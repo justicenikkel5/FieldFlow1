@@ -9,6 +9,7 @@ import Dashboard from "@/pages/dashboard";
 import Register from "./pages/register";
 import SignIn from "./pages/signin";
 import PaymentTest from "./pages/payment-test";
+import PrivacyPolicy from "./pages/privacy-policy";
 import NotFound from "./pages/not-found";
 import { lazy } from "react";
 
@@ -26,6 +27,7 @@ function Router() {
       <Route path="/signin" component={SignIn} />
       <Route path="/payment-test" component={PaymentTest} />
       <Route path="/email-test" component={lazy(() => import("./pages/email-test"))} />
+      <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route component={NotFound} />
     </Switch>
   );
