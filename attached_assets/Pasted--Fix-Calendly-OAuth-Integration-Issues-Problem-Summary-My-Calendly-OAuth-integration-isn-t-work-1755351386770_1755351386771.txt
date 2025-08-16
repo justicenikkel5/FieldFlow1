@@ -1,0 +1,103 @@
+# Fix Calendly OAuth Integration Issues
+
+## Problem Summary
+My Calendly OAuth integration isn't working due to:
+1. Content Security Policy blocking Stripe 
+2. Redirect URI mismatch between development and production environments
+3. Missing OAuth scopes
+
+## Required Changes
+
+### 1. Fix Content Security Policy Issue
+
+**Search for CSP configuration** in these files:
+- `client/index.html` (look for meta tag with Content-Security-Policy)
+- `server/index.ts` (look for helmet middleware or CSP headers)
+- `vite.config.ts` (look for CSP in Vite config)
+
+**Current CSP problem**: `frame-src https://calendly.com https://*.calendly.com` is blocking Stripe
+
+**Fix**: Update CSP to include Stripe domains:
+```
+frame-src https://calendly.com https://*.calendly.com https://js.stripe.com https://*.stripe.com
+```
+
+### 2. Add Environment-Based Redirect URI Configuration
+
+**Step A**: Update `.env` file to add:
+```env
+NODE_ENV=development
+CALENDLY_REDIRECT_URL_DEV=http://localhost:5000/api/auth/calendly/callback
+```
+
+**Step B**: In `server/routes.ts`, find the `/api/auth/calendly` endpoint and replace:
+```javascript
+const redirectUri = process.env.CALENDLY_REDIRECT_URL!;
+```
+
+**With**:
+```javascript
+const getRedirectUrl = () => {
+  if (process.env.NODE_ENV === 'development') {
+    return process.env.CALENDLY_REDIRECT_URL_DEV || 'http://localhost:5000/api/auth/calendly/callback';
+  }
+  return process.env.CALENDLY_REDIRECT_URL!;
+};
+
+const redirectUri = getRedirectUrl();
+```
+
+**Step C**: In the same file, find the `/api/auth/calendly/callback` endpoint and replace:
+```javascript
+redirect_uri: process.env.CALENDLY_REDIRECT_URL!,
+```
+
+**With**:
+```javascript
+redirect_uri: getRedirectUrl(),
+```
+
+**And add the same helper function** at the top of the callback handler:
+```javascript
+const getRedirectUrl = () => {
+  if (process.env.NODE_ENV === 'development') {
+    return process.env.CALENDLY_REDIRECT_URL_DEV || 'http://localhost:5000/api/auth/calendly/callback';
+  }
+  return process.env.CALENDLY_REDIRECT_URL!;
+};
+```
+
+### 3. Add OAuth Scope Parameter
+
+**In the `/api/auth/calendly` endpoint**, find the auth URL generation:
+```javascript
+const authUrl = `https://auth.calendly.com/oauth/authorize?client_id=${encodeURIComponent(clientId)}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(userId)}`;
+```
+
+**Replace with** (add scope parameter):
+```javascript
+const authUrl = `https://auth.calendly.com/oauth/authorize?client_id=${encodeURIComponent(clientId)}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(userId)}&scope=default`;
+```
+
+### 4. Verification Steps
+
+After making changes:
+1. Search for any remaining hardcoded `process.env.CALENDLY_REDIRECT_URL!` references and replace with `getRedirectUrl()`
+2. Ensure the `getRedirectUrl()` function is defined in both OAuth endpoints
+3. Verify that environment variables are properly loaded
+
+## Expected Result
+
+After these changes:
+1. No more CSP errors in browser console
+2. OAuth flow redirects to localhost in development
+3. Calendly authorization works and returns to local callback handler
+4. Token exchange completes successfully
+
+## Additional Notes
+
+- Make sure to keep existing environment variables for production
+- The `NODE_ENV=development` should already be set in development mode
+- Don't modify the production redirect URI (`CALENDLY_REDIRECT_URL`)
+
+Please implement all these changes and let me know if you encounter any issues or need clarification on any steps.

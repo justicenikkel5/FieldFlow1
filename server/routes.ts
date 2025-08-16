@@ -113,12 +113,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         res.json({ authUrl, redirectToDashboard: false });
       } else if (connectCalendly) {
-        // Generate Calendly OAuth URL
+        // Generate Calendly OAuth URL with environment-based redirect URI
+        const getRedirectUrl = () => {
+          if (process.env.NODE_ENV === 'development') {
+            return process.env.CALENDLY_REDIRECT_URL_DEV || 'http://localhost:5000/api/auth/calendly/callback';
+          }
+          return process.env.CALENDLY_REDIRECT_URL!;
+        };
+
         const authUrl = `https://auth.calendly.com/oauth/authorize?${new URLSearchParams({
           client_id: process.env.CALENDLY_CLIENT_ID!,
           response_type: 'code',
-          redirect_uri: process.env.CALENDLY_REDIRECT_URL!,
+          redirect_uri: getRedirectUrl(),
           state: userId,
+          scope: 'default'
         })}`;
 
         res.json({ authUrl, redirectToDashboard: false });
@@ -627,7 +635,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const redirectUri = getRedirectUrl();
       const clientId = process.env.CALENDLY_CLIENT_ID!;
       
-      const authUrl = `https://auth.calendly.com/oauth/authorize?client_id=${encodeURIComponent(clientId)}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(userId)}`;
+      const authUrl = `https://auth.calendly.com/oauth/authorize?client_id=${encodeURIComponent(clientId)}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(userId)}&scope=default`;
 
       console.log('=== CALENDLY OAUTH URL GENERATION ===');
       console.log('Client ID:', clientId.substring(0, 10) + '...');
