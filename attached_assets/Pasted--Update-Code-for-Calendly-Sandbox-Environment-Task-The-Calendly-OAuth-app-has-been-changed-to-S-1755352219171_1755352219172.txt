@@ -1,0 +1,72 @@
+# Update Code for Calendly Sandbox Environment
+
+## Task
+The Calendly OAuth app has been changed to Sandbox environment with localhost redirect URI. Please make sure the code is properly configured for development testing.
+
+## Required Verification and Updates
+
+### 1. Check Current Environment Variables
+Verify that the `.env` file contains:
+```env
+NODE_ENV=development
+CALENDLY_REDIRECT_URL_DEV=http://localhost:5000/api/auth/calendly/callback
+```
+
+### 2. Verify OAuth Endpoint Code
+In `server/routes.ts`, confirm the `/api/auth/calendly` endpoint includes the `getRedirectUrl()` function and uses it correctly:
+
+```javascript
+const getRedirectUrl = () => {
+  if (process.env.NODE_ENV === 'development') {
+    return process.env.CALENDLY_REDIRECT_URL_DEV || 'http://localhost:5000/api/auth/calendly/callback';
+  }
+  return process.env.CALENDLY_REDIRECT_URL!;
+};
+
+const redirectUri = getRedirectUrl();
+```
+
+### 3. Verify Callback Handler
+In the `/api/auth/calendly/callback` endpoint, confirm it also uses the same environment-based redirect URI:
+
+```javascript
+const getRedirectUrl = () => {
+  if (process.env.NODE_ENV === 'development') {
+    return process.env.CALENDLY_REDIRECT_URL_DEV || 'http://localhost:5000/api/auth/calendly/callback';
+  }
+  return process.env.CALENDLY_REDIRECT_URL!;
+};
+
+// In the token exchange:
+redirect_uri: getRedirectUrl(),
+```
+
+### 4. Add Scope Parameter
+Verify the auth URL includes the scope parameter:
+
+```javascript
+const authUrl = `https://auth.calendly.com/oauth/authorize?client_id=${encodeURIComponent(clientId)}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(userId)}&scope=default`;
+```
+
+### 5. Console Logging for Debug
+Add extra console logging to help debug the OAuth flow:
+
+```javascript
+console.log('Environment:', process.env.NODE_ENV);
+console.log('Using redirect URI:', redirectUri);
+console.log('Generated auth URL:', authUrl);
+```
+
+## Expected Result
+After these updates:
+- Code will use localhost redirect URI in development
+- OAuth flow will work with Calendly Sandbox environment
+- Enhanced logging will help debug any remaining issues
+
+## Instructions
+1. Verify all the above code patterns are implemented
+2. Make any necessary corrections
+3. Ensure environment-based configuration is working properly
+4. Add debug logging if not already present
+
+Please implement these changes and confirm everything is configured correctly for Sandbox testing.

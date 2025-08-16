@@ -638,8 +638,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const authUrl = `https://auth.calendly.com/oauth/authorize?client_id=${encodeURIComponent(clientId)}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(userId)}&scope=default`;
 
       console.log('=== CALENDLY OAUTH URL GENERATION ===');
+      console.log('Environment:', process.env.NODE_ENV);
+      console.log('Using redirect URI:', redirectUri);
+      console.log('CALENDLY_REDIRECT_URL_DEV available:', !!process.env.CALENDLY_REDIRECT_URL_DEV);
       console.log('Client ID:', clientId.substring(0, 10) + '...');
-      console.log('Redirect URI:', redirectUri);
       console.log('User ID (state):', userId);
       console.log('Generated auth URL:', authUrl);
       console.log('======================================');
@@ -661,6 +663,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       console.log('=== CALENDLY OAUTH CALLBACK ===');
+      console.log('Environment:', process.env.NODE_ENV);
+      console.log('Using redirect URI for callback:', getRedirectUrl());
       console.log('Query params:', req.query);
       
       const { code, state: userId, error, error_description } = req.query;
